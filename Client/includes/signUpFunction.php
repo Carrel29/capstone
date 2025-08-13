@@ -15,7 +15,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (empty($email) || empty($password) || empty($confirmPassword) || empty($firstname) || empty($lastname) || empty($phonenumber)) {
         $message = "All fields are required.";
-        return $message;
     }
 
     if ($password != $confirmPassword) {
@@ -29,22 +28,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } else {
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-        try {
-            $pr_signUp = "CALL pr_signUp(:firstname, :lastname, :email, :password, :phonenumber)";
-            $stmt = $pdo->prepare($pr_signUp);
-            $stmt->bindParam(':firstname', $firstname);
-            $stmt->bindParam(':lastname', $lastname);
-            $stmt->bindParam(':email', $email);
-            $stmt->bindParam(':password', $hashedPassword);
-            $stmt->bindParam(':phonenumber', $phonenumber);
-            $stmt->execute();
+  try {
+    $stmt = $pdo->prepare("
+        INSERT INTO client_users (first_name, last_name, email, password, phone_number, is_verified, created_at)
+        VALUES (:firstname, :lastname, :email, :password, :phonenumber, 0, NOW())
+    ");
+    $stmt->bindParam(':firstname', $firstname);
+    $stmt->bindParam(':lastname', $lastname);
+    $stmt->bindParam(':email', $email);
+    $stmt->bindParam(':password', $hashedPassword);
+    $stmt->bindParam(':phonenumber', $phonenumber);
+    $stmt->execute();
 
-            $isSuccess =  true;
-            $message = "Signup successful";
+    $isSuccess = true;
+    $message = "Signup successful";
 
-        } catch (PDOException $e) {
-            $message = "Error: " . $e->getMessage();
-        }
+} catch (PDOException $e) {
+    $message = "Error: " . $e->getMessage();
+}
     }
 }
 
@@ -52,13 +53,12 @@ function isEmailExist($emailParam) {
     global $pdo;
 
     try {
-        $pr_isExistEmail = "CALL pr_isEmailExist(:email)";
-        $stmt = $pdo->prepare($pr_isExistEmail);
-        $stmt->bindParam(':email', $emailParam);
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM client_users WHERE email = :email");
+        $stmt->bindParam(':email', $emailParam, PDO::PARAM_STR);
         $stmt->execute();
+        $count = $stmt->fetchColumn();
+        return $count > 0;
 
-        $result = $stmt->fetch();
-        return $result[0] == 1;
 
     } catch (PDOException $e) {
         echo "Error: " . $e->getMessage();

@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: Aug 13, 2025 at 04:53 AM
--- Server version: 8.2.0
--- PHP Version: 8.2.13
+-- Generation Time: Aug 13, 2025 at 10:56 AM
+-- Server version: 9.1.0
+-- PHP Version: 8.3.14
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -325,14 +325,14 @@ CREATE TABLE IF NOT EXISTS `client_users` (
   UNIQUE KEY `email` (`email`),
   KEY `idx_email` (`email`),
   KEY `idx_status` (`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `client_users`
 --
 
 INSERT INTO `client_users` (`id`, `email`, `password`, `first_name`, `last_name`, `phone_number`, `verification_code`, `is_verified`, `verification_expiry`, `created_at`, `updated_at`, `last_login`, `status`) VALUES
-(1, 'lanceaeronm@gmail.com', '$2y$10$O75m.M..wK8sw//u6wRmz.YNFzzEknT8b8JoeysV1B1Bhr9jvP7l.', 'Lance', 'Mendoza', '09666057991', '9043', 1, '2025-05-11 20:25:33', '2025-05-11 12:15:33', '2025-05-11 13:23:16', '2025-05-11 21:23:16', 'active');
+(2, 'lanceaeronm@gmiail.com', '$2y$10$8aXaSnpyru8WweVJnazJkOXMpi1.yUTBS/QCKMY.AIPozqxxVdw3i', 'Lance', 'Mendoza', '08666057991', NULL, 0, NULL, '2025-08-13 10:08:49', '2025-08-13 10:08:49', NULL, 'active');
 
 -- --------------------------------------------------------
 
