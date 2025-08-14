@@ -67,33 +67,89 @@ body {
 }
 
 .card {
-  background-color: var(--primary-card-color);
-  border-radius: 2px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  display: flex;
-  justify-content: center;
-  padding: 20px;
-  margin: auto;
-  gap: 20px;
-  margin: 10px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
 .card img {
-  width: 600px;
-  height: auto;
-  border-radius: 8px;
+  width: 100%;
+  height: auto; /* keeps original ratio */
+  display: block;
 }
 
 .card-content {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+  padding: 15px;
+  background: #fff;
 }
 
-.card-content h2 {
-  color: black;
-  font-size: 1.5rem;
-  margin: 10px 0;
+.card-content h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.2rem;
+}
+
+.card-content ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.card-content li {
+  margin-bottom: 5px;
+  font-size: 0.95rem;
+}
+
+.card-content .price {
+  font-weight: bold;
+  color: #1b0f04;
+  margin-top: 10px;
+}
+
+
+.about-card {
+  width: 100%; /* Make it full width */
+  max-width: 900px; /* Restrict so it doesn't stretch too much */
+  margin: 20px auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: row; /* text and image side by side */
+  align-items: stretch;
+}
+
+.about-card img {
+  width: 40%;
+  height: auto;
+  object-fit: cover;
+}
+
+.about-card .card-content {
+  padding: 20px;
+  width: 60%;
+}
+
+.about-card p {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.about-card b {
+  color: #444;
+}
+
+@media (max-width: 768px) {
+  .about-card {
+    flex-direction: column;
+  }
+  .about-card img {
+    width: 100%;
+  }
+  .about-card .card-content {
+    width: 100%;
+  }
 }
 
 section {
