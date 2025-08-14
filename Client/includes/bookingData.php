@@ -37,7 +37,9 @@ function getFormData($postData)
     'btattendees' => $postData['btattendees'] ?? '',
     'btservices' => isset($postData['btservices']) ? implode(',', $postData['btservices']) : 'test',
     'btmessage' => $postData['btmessage'] ?? '',
-    'event_duration' => computeDuration(isset($postData['btschedule']) ? date('Y-m-d H:i:s', strtotime($postData['btschedule'])) : '', $postData['event_duration']) ?? ''
+    'event_duration' => computeDuration(isset($postData['btschedule']) ? date('Y-m-d H:i:s', strtotime($postData['btschedule'])) : '', $postData['event_duration']) ?? '',
+    'status' => 'Pending',
+    'payment_status' => 'unpaid'
   ];
 }
 
@@ -53,7 +55,9 @@ function isValidFormData($data)
     !empty($data['btattendees']) &&
     isset($data['btservices']) && $data['btservices'] !== '' &&
     !empty($data['btmessage']) &&
-    !empty($data['event_duration']);
+    !empty($data['event_duration']) &&
+    !empty($data['status']) &&
+    !empty($data['payment_status']);
 }
 
 /**
@@ -62,9 +66,9 @@ function isValidFormData($data)
 function insertBooking($pdo, $data)
 {
   $sql = "INSERT INTO bookings (btuser_id, btaddress, btevent, btschedule, btattendees, 
-      btservices, btmessage, EventDuration) 
+      btservices, btmessage, EventDuration, status, payment_status) 
       VALUES (:btuser_id, :btaddress, :btevent, :btschedule, :btattendees, 
-      :btservices, :btmessage, :event_duration)";
+      :btservices, :btmessage, :event_duration, :status, :payment_status)";
 
   $stmt = $pdo->prepare($sql);
   $stmt->execute([
@@ -75,7 +79,9 @@ function insertBooking($pdo, $data)
     ':btattendees' => $data['btattendees'],
     ':btservices' => $data['btservices'],
     ':btmessage' => $data['btmessage'],
-    ':event_duration' => $data['event_duration']
+    ':event_duration' => $data['event_duration'],
+    ':status' => $data['status'],
+    ':payment_status' => $data['payment_status']
   ]);
 }
 

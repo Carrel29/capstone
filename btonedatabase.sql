@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: Aug 13, 2025 at 10:56 AM
+-- Generation Time: Aug 14, 2025 at 11:21 AM
 -- Server version: 9.1.0
 -- PHP Version: 8.3.14
 
@@ -110,9 +110,13 @@ CREATE TABLE IF NOT EXISTS `bookings` (
   `btevent` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `btschedule` datetime DEFAULT NULL,
   `EventDuration` datetime DEFAULT NULL,
+  `total_cost` double NOT NULL DEFAULT '0',
+  `additional_headcount` int NOT NULL DEFAULT '0',
   `btattendees` int DEFAULT NULL,
   `btservices` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `btmessage` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `status` enum('Pending','Approved','Canceled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Pending',
+  `payment_status` enum('unpaid','partial','paid') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'unpaid',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -121,18 +125,18 @@ CREATE TABLE IF NOT EXISTS `bookings` (
 -- Dumping data for table `bookings`
 --
 
-INSERT INTO `bookings` (`id`, `btuser_id`, `btaddress`, `btevent`, `btschedule`, `EventDuration`, `btattendees`, `btservices`, `btmessage`, `created_at`) VALUES
-(1, 1, 'Rizal', 'Party', '2025-04-14 13:12:00', '2025-04-15 01:12:00', 23, 'Lights,Speakers,Event Place', 'test', '2025-04-13 21:12:51'),
-(2, 5, '525 gondola Street ', 'Weddings', '2025-04-22 15:18:00', '2025-04-23 03:18:00', 56, 'LED Wall,Red Carpet (From entrance to stage),Band Equipment (On venue setup only)', 'mama mo', '2025-04-21 23:19:10'),
-(3, 5, '525 gondola Street ', 'Weddings', '2025-05-23 22:50:00', '2025-05-24 10:50:00', 56, 'Bridal Car - Civic,Bridal Car - Suzuki Jimny', 'hello', '2025-05-08 06:52:05'),
-(4, 5, '525 gondola Street ', 'Weddings', '2025-05-24 23:58:00', '2025-05-25 11:58:00', 56, 'Acrylic Stage - 12x16 Ft,Acrylic Stage - 12x20 Ft', 'hello', '2025-05-08 07:58:07'),
-(5, 6, 'EVERLASTING ST.', 'Graduation', '2025-05-11 23:02:00', '2025-05-12 11:02:00', 80, 'Additional Hour of Usage in Venue,Red Carpet (From entrance to stage),Acrylic Stage - 12x20 Ft', 'hello', '2025-05-11 15:02:39'),
-(6, 1, '123', 'Weddings', '2025-05-23 23:04:00', '2025-05-24 11:04:00', 123, 'Ceremony & Reception Usage Additional Charges', '123', '2025-05-11 15:05:06'),
-(7, 6, 'EVERLASTING ST.', 'Weddings', '2025-05-09 00:05:00', '2025-05-09 12:05:00', 123, 'LED Wall', '123', '2025-05-11 16:05:28'),
-(8, 6, 'EVERLASTING ST.', 'Weddings', '2025-05-31 04:03:00', '2025-06-01 04:03:00', 123, 'LED Wall', 'hello', '2025-05-11 20:03:39'),
-(9, 6, 'EVERLASTING ST.', 'Weddings', '2025-05-17 04:09:00', '2025-05-17 16:09:00', 123, 'Band Equipment (On venue setup only)', 'hi', '2025-05-11 20:09:35'),
-(10, 6, 'EVERLASTING ST.', 'Weddings', '2025-05-12 11:20:00', '2025-05-12 23:20:00', 12, 'LED Wall', 'asdasd', '2025-05-12 03:20:51'),
-(11, 5, '222 Candola', 'Weddings', '2025-05-23 02:00:00', '2025-05-23 14:00:00', 45, 'LED Wall,Ceremony & Reception Usage Additional Charges,Bridal Car - Vios', 'make it glamorues', '2025-05-14 02:05:33');
+INSERT INTO `bookings` (`id`, `btuser_id`, `btaddress`, `btevent`, `btschedule`, `EventDuration`, `total_cost`, `additional_headcount`, `btattendees`, `btservices`, `btmessage`, `status`, `payment_status`, `created_at`) VALUES
+(1, 1, 'Rizal', 'Party', '2025-04-14 13:12:00', '2025-04-15 01:12:00', 0, 0, 23, 'Lights,Speakers,Event Place', 'test', 'Pending', 'unpaid', '2025-04-13 21:12:51'),
+(2, 5, '525 gondola Street ', 'Weddings', '2025-04-22 15:18:00', '2025-04-23 03:18:00', 0, 0, 56, 'LED Wall,Red Carpet (From entrance to stage),Band Equipment (On venue setup only)', 'mama mo', 'Pending', 'unpaid', '2025-04-21 23:19:10'),
+(3, 5, '525 gondola Street ', 'Weddings', '2025-05-23 22:50:00', '2025-05-24 10:50:00', 0, 0, 56, 'Bridal Car - Civic,Bridal Car - Suzuki Jimny', 'hello', 'Pending', 'unpaid', '2025-05-08 06:52:05'),
+(4, 5, '525 gondola Street ', 'Weddings', '2025-05-24 23:58:00', '2025-05-25 11:58:00', 0, 0, 56, 'Acrylic Stage - 12x16 Ft,Acrylic Stage - 12x20 Ft', 'hello', 'Pending', 'unpaid', '2025-05-08 07:58:07'),
+(5, 6, 'EVERLASTING ST.', 'Graduation', '2025-05-11 23:02:00', '2025-05-12 11:02:00', 0, 0, 80, 'Additional Hour of Usage in Venue,Red Carpet (From entrance to stage),Acrylic Stage - 12x20 Ft', 'hello', 'Pending', 'unpaid', '2025-05-11 15:02:39'),
+(6, 1, '123', 'Weddings', '2025-05-23 23:04:00', '2025-05-24 11:04:00', 0, 0, 123, 'Ceremony & Reception Usage Additional Charges', '123', 'Pending', 'unpaid', '2025-05-11 15:05:06'),
+(7, 6, 'EVERLASTING ST.', 'Weddings', '2025-05-09 00:05:00', '2025-05-09 12:05:00', 0, 0, 123, 'LED Wall', '123', 'Pending', 'unpaid', '2025-05-11 16:05:28'),
+(8, 6, 'EVERLASTING ST.', 'Weddings', '2025-05-31 04:03:00', '2025-06-01 04:03:00', 0, 0, 123, 'LED Wall', 'hello', 'Pending', 'unpaid', '2025-05-11 20:03:39'),
+(9, 6, 'EVERLASTING ST.', 'Weddings', '2025-05-17 04:09:00', '2025-05-17 16:09:00', 0, 0, 123, 'Band Equipment (On venue setup only)', 'hi', 'Pending', 'unpaid', '2025-05-11 20:09:35'),
+(10, 6, 'EVERLASTING ST.', 'Weddings', '2025-05-12 11:20:00', '2025-05-12 23:20:00', 0, 0, 12, 'LED Wall', 'asdasd', 'Pending', 'unpaid', '2025-05-12 03:20:51'),
+(11, 5, '222 Candola', 'Weddings', '2025-05-23 02:00:00', '2025-05-23 14:00:00', 0, 0, 45, 'LED Wall,Ceremony & Reception Usage Additional Charges,Bridal Car - Vios', 'make it glamorues', 'Pending', 'unpaid', '2025-05-14 02:05:33');
 
 -- --------------------------------------------------------
 
@@ -608,7 +612,7 @@ CREATE TABLE IF NOT EXISTS `sales` (
   `booking_id` int NOT NULL,
   `GcashReferenceNo` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `TotalAmount` double NOT NULL,
-  `AmountPaid` double DEFAULT NULL,
+  `AmountPaid` double NOT NULL DEFAULT '0',
   `Status` smallint NOT NULL DEFAULT '1',
   `DateCreated` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `DateUpdate` datetime DEFAULT NULL,
