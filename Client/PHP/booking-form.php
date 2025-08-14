@@ -1,14 +1,13 @@
 <?php
 session_start();
-include_once "../includes/dbh.inc.php";
+include_once "../includes/loginSession.php";
 include_once "../includes/userData.php";
 include_once "../includes/allData.php";
 
-// Check if user is logged in
-//if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
-//  header('Location: login.php');
-//exit();
-//}
+if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
+    header("Location: login.php");
+    exit();
+}
 
 // Current timestamp and user info
 $current_utc = '2025-05-11 19:30:37';
@@ -52,6 +51,75 @@ function getAvailableEquipment($conn)
 }
 
 $available_equipment = getAvailableEquipment($conn);
+
+// Update form processing section
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $formData = [
+        'btuser_id' => $_SESSION['bt_user_id'],
+        'btaddress' => $_POST['btaddress'] ?? '',
+        'btevent' => $_POST['btevent'] ?? '',
+        'btschedule' => isset($_POST['btschedule']) ? date('Y-m-d H:i:s', strtotime($_POST['btschedule'])) : '',
+        'btattendees' => $_POST['btattendees'] ?? 0,
+        'additional_headcount' => $_POST['additional_headcount'] ?? 0,
+        'btservices' => isset($_POST['btservices']) ? implode(',', $_POST['btservices']) : '',
+        'btmessage' => $_POST['btmessage'] ?? '',
+        'event_duration' => computeDuration(isset($_POST['btschedule']) ? date('Y-m-d H:i:s', strtotime($_POST['btschedule'])) : '', $_POST['event_duration'] ?? 4),
+        'status' => 'Pending',
+        'payment_status' => 'unpaid'
+    ];
+
+    if (isValidFormData($formData)) {
+        try {
+            if (!isScheduleOccupied($pdo, $formData['btschedule'], $formData['event_duration'])) {
+                $totalCost = calculateTotalCost($formData);
+                $formData['total_cost'] = $totalCost;
+                
+                $sql = "INSERT INTO bookings (btuser_id, btaddress, btevent, btschedule, btattendees, 
+                        btservices, btmessage, EventDuration, total_cost, additional_headcount, 
+                        status, payment_status, created_at) 
+                        VALUES (:btuser_id, :btaddress, :btevent, :btschedule, :btattendees, 
+                        :btservices, :btmessage, :event_duration, :total_cost, :additional_headcount, 
+                        :status, :payment_status, NOW())";
+                
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    ':btuser_id' => $formData['btuser_id'],
+                    ':btaddress' => $formData['btaddress'],
+                    ':btevent' => $formData['btevent'],
+                    ':btschedule' => $formData['btschedule'],
+                    ':btattendees' => $formData['btattendees'],
+                    ':btservices' => $formData['btservices'],
+                    ':btmessage' => $formData['btmessage'],
+                    ':event_duration' => $formData['event_duration'],
+                    ':total_cost' => $totalCost,
+                    ':additional_headcount' => $formData['additional_headcount'],
+                    ':status' => $formData['status'],
+                    ':payment_status' => $formData['payment_status']
+                ]);
+
+                header("Location: user_cart.php");
+                exit();
+            }
+        } catch (PDOException $e) {
+            $message = "Error: " . $e->getMessage();
+        }
+    }
+}
+
+// Add cost calculation function
+function calculateTotalCost($data) {
+    $baseCost = 0;
+    $headcountCost = 50; // Cost per additional head
+    $additionalHeads = max(0, $data['additional_headcount']);
+
+    if ($data['btevent'] === 'Wedding') {
+        $baseCost = 1000; // Base bundle cost
+    } else {
+        $baseCost = 300; // Default base cost
+    }
+
+    return $baseCost + ($additionalHeads * $headcountCost);
+}
 ?>
 
 <!DOCTYPE html>
@@ -64,6 +132,13 @@ $available_equipment = getAvailableEquipment($conn);
     <script src="../JS/payment.js"></script>
     <script src="../JS/services.js"></script>
     <title>Booking Form</title>
+    <script>
+        function updateForm() {
+            const eventType = document.getElementById('btevent').value;
+            const bundleDiv = document.querySelector('.wedding-bundle');
+            bundleDiv.style.display = eventType === 'Wedding' ? 'block' : 'none';
+        }
+    </script>
 </head>
 
 <body>
@@ -128,7 +203,7 @@ $available_equipment = getAvailableEquipment($conn);
                     <!-- Event Details -->
                     <div>
                         <label for="event">Event</label>
-                        <select name="btevent" class="form-control" required>
+                        <select name="btevent" class="form-control" id="btevent" required onchange="updateForm()">
                             <?php
                             $events = [
                                 "Weddings",
@@ -168,6 +243,11 @@ $available_equipment = getAvailableEquipment($conn);
                     <div>
                         <label for="Attendees">No. Attendees</label>
                         <input type="number" name="btattendees" required>
+                    </div>
+
+                    <div class="additional-headcount" style="display:none;">
+                        <label for="additional_headcount">Additional Headcount</label>
+                        <input type="number" name="additional_headcount" value="0" min="0">
                     </div>
 
                     <!-- Location Section -->
@@ -244,6 +324,15 @@ $available_equipment = getAvailableEquipment($conn);
                     <!-- Submit Button -->
                     <div class="btn-group-card gap-20">
                         <input class="btn btn-view-now" type="submit" value="Submit">
+                    </div>
+
+                    <!-- Wedding Bundle Section -->
+                    <div class="wedding-bundle" style="display:none;">
+                        <h3>Wedding Bundle</h3>
+                        <p>Includes: Basic Sound System, Lights, and Projector</p>
+                        <p>Base Cost: ₱1000</p>
+                        <label>Additional Headcount (₱50/head):</label>
+                        <input type="number" name="additional_headcount" value="0" min="0">
                     </div>
                 </form>
             </div>

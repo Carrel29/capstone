@@ -39,8 +39,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 btattendees, 
                 btservices, 
                 btmessage,
-                created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+                created_at,
+                status,
+                payment_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'Pending', 'unpaid')";
 
             // Calculate EventDuration (24 hours from btschedule)
             $schedule = $item['event_date'] . ' ' . $item['event_time'];
@@ -87,19 +89,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkout</title>
     <style>
-        /* Add your styles here */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
     </style>
 </head>
-
 <body>
     <h1>Processing your order...</h1>
     <p>Please wait while we process your booking...</p>
 </body>
-
 </html>

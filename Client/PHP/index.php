@@ -31,6 +31,7 @@ include_once "../includes/userData.php";
           <a href="#"><img src="../Img/menu.png" alt="" class="img-round"></a>
           <ul class="dropdown-content">
             <li><a href="#"><?php echo $fullname ?></a></li>
+            <li><a href="user_cart.php">My Cart</a></li>
             <li><a href="../includes/logout.php">Logout</a></li>
           </ul>
         </li>

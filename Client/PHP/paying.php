@@ -21,14 +21,15 @@ $success = '';
 
 // Fetch booking details when ID and name are provided
 if (!empty($bookingId) && !empty($customerName)) {
-    $stmt = $pdo->prepare("SELECT id, customer_name, total_cost, down_payment_status, down_payment_amount, payment_status 
-                           FROM customer_inquiries 
-                           WHERE id = ? AND customer_name = ?");
+    $stmt = $pdo->prepare("SELECT b.id, b.btuser_id, b.btservices, s.TotalAmount, s.AmountPaid, b.payment_status 
+                           FROM bookings b
+                           LEFT JOIN sales s ON b.id = s.booking_id
+                           WHERE b.id = ? AND u.bt_first_name = ?");
     $stmt->execute([$bookingId, $customerName]);
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($booking) {
-        $totalCost = floatval($booking['total_cost']);
+        $totalCost = floatval($booking['TotalAmount']);
         $downPaymentRequired = $totalCost * 0.4; // 40% of total cost
     } else {
         $error = "Booking not found or customer name does not match. Please check your Booking ID and Name.";
@@ -45,22 +46,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment']) && 
     if (empty($referenceNumber)) {
         $error = "Please enter a valid reference number.";
     } else {
-        $currentDownPayment = floatval($booking['down_payment_amount']);
-        $newDownPaymentAmount = $currentDownPayment + $downPaymentAmount;
+        $currentPaid = floatval($booking['AmountPaid'] ?? 0);
+        $totalPaid = $currentPaid + $downPaymentAmount;
+        $totalExpected = floatval($booking['TotalAmount']);
 
         try {
             $pdo->beginTransaction();
 
             // Validate payment
-            if ($newDownPaymentAmount > $totalCost) {
+            if ($totalPaid > $totalExpected) {
                 throw new Exception("Payment amount exceeds total cost.");
-            } elseif ($downPaymentAmount < $downPaymentRequired && !$isFullPayment && $currentDownPayment == 0) {
-                throw new Exception("Down payment must be at least 40% of the total cost (₱" . number_format($downPaymentRequired, 2) . ").");
+            }
+            if ($totalPaid < $totalExpected * 0.4 && $totalPaid > 0) {
+                throw new PDOException("Down payment must be at least 40% of the total cost (₱" . number_format($totalExpected * 0.4, 2) . ").");
             }
 
-            // Determine new statuses
-            $newDownPaymentStatus = $newDownPaymentAmount >= $downPaymentRequired ? 'paid' : ($newDownPaymentAmount > 0 ? 'partial' : 'pending');
-            $newPaymentStatus = $isFullPayment || $newDownPaymentAmount >= $totalCost ? 'paid' : ($newDownPaymentAmount > 0 ? 'partial' : 'pending');
+            // Determine new payment status
+            $newPaymentStatus = $totalPaid >= $totalExpected ? 'paid' : ($totalPaid >= $totalExpected * 0.4 ? 'partial' : 'pending');
 
             // Update customer_inquiries
             $stmt = $pdo->prepare("UPDATE customer_inquiries 
