@@ -27,11 +27,19 @@ include_once "../includes/userData.php";
         <li><a href="index.php">Home</a></li>
         <li><a href="#services">Services</a></li>
         <li><a href="#aboutus">About Us</a></li>
+        <li>
+      <a 
+        href="<?php echo isset($_SESSION['loggedin']) && $_SESSION['loggedin'] ? 'booking-form.php' : '#'; ?>" 
+        class="btn btn-view-now booking-top"
+        <?php if (!isset($_SESSION['loggedin']) || !$_SESSION['loggedin']) echo 'onclick="openLoginModal(event)"'; ?>
+      >
+        Book
+      </a>
+    </li>
         <li class="dropdown">
           <a href="#"><img src="../Img/menu.png" alt="" class="img-round"></a>
           <ul class="dropdown-content">
-            <li><a href="#"><?php echo $fullname ?></a></li>
-            <li><a href="user_cart.php">My Cart</a></li>
+            <li><a href="#">Cart</a></li>
             <li><a href="../includes/logout.php">Logout</a></li>
           </ul>
         </li>

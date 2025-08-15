@@ -23,19 +23,32 @@ require __DIR__ . "/Client/includes/userdata.php";
   <header>
     <h1 class="company-name">BTONE</h1>
     <nav class="nav-bar">
-      <ul>
-        <li><a href="index.php">Home</a></li>
-        <li><a href="#services">Services</a></li>
-        <li><a href="#aboutus">About Us</a></li>
-        <li class="dropdown">
-          <a href="#"><img src="Client/Img/menu.png" alt="" class="img-round"></a>
-          <ul class="dropdown-content">
-            <li><a href="Client/PHP/user_cart.php"><?php echo $fullname ?></a></li>
-            <li><a href="Client/includes/logout.php">Logout</a></li>
-          </ul>
-        </li>
+  <ul>
+    <li><a href="index.php">Home</a></li>
+    <li><a href="#services">Services</a></li>
+    <li><a href="#aboutus">About Us</a></li>
+
+    <!-- New Book Button -->
+    <li>
+      <a 
+        href="<?php echo isset($_SESSION['loggedin']) && $_SESSION['loggedin'] ? 'booking-form.php' : '#'; ?>" 
+        class="btn btn-view-now booking-top"
+        <?php if (!isset($_SESSION['loggedin']) || !$_SESSION['loggedin']) echo 'onclick="openLoginModal(event)"'; ?>
+      >
+        Book
+      </a>
+    </li>
+
+    <li class="dropdown">
+      <a href="#"><img src="Client/Img/menu.png" alt="" class="img-round"></a>
+      <ul class="dropdown-content">
+        <li><a href="Client/PHP/user_cart.php"><?php echo $fullname ?></a></li>
+        <li><a href="Client/includes/logout.php">Logout</a></li>
       </ul>
-    </nav>
+    </li>
+  </ul>
+</nav>
+
   </header>
   <main>
     <section class="overview-section combo-display-flex">
@@ -216,6 +229,13 @@ require __DIR__ . "/Client/includes/userdata.php";
 
   <!-- toast end -->
   <script src="Client/JS/toast.js"></script>
+  <script>
+function openLoginModal(e) {
+  e.preventDefault();
+  document.querySelector('.pop-up-modal').classList.remove('d-none');
+}
+</script>
+
 </body>
 
 </html>
