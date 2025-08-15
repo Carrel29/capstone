@@ -22,7 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         if ($user && password_verify($password, $user['bt_password_hash'])) {
             session_regenerate_id(true);
-            $_SESSION["loggedin"] = 'true';
+            $_SESSION["loggedin"] = true;
             $_SESSION["fullname"] = $user['bt_first_name'] . " " . $user['bt_last_name'];
             $_SESSION["email"] = $email;
             $_SESSION["privilege"] = $user['bt_privilege_id'];

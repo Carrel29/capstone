@@ -28,12 +28,12 @@ require __DIR__ . "/Client/includes/userdata.php";
     <li><a href="#services">Services</a></li>
     <li><a href="#aboutus">About Us</a></li>
 
-    <!-- New Book Button -->
+    <!-- Top Book Button -->
     <li>
       <a 
-        href="<?php echo isset($_SESSION['loggedin']) && $_SESSION['loggedin'] ? 'booking-form.php' : '#'; ?>" 
+        href="<?php echo !empty($_SESSION['loggedin']) ? 'booking-form.php' : '#'; ?>" 
         class="btn btn-view-now booking-top"
-        <?php if (!isset($_SESSION['loggedin']) || !$_SESSION['loggedin']) echo 'onclick="openLoginModal(event)"'; ?>
+        <?php if (empty($_SESSION['loggedin'])) echo 'onclick="openLoginModal(event)"'; ?>
       >
         Book
       </a>
@@ -60,7 +60,14 @@ require __DIR__ . "/Client/includes/userdata.php";
           full concert, Btone brings your event to life.
         </p>
         <div class="btn-group-card flex-start">
-          <a class="btn btn-view-now pop-up-modal-js booking" href="adding.php">BOOK NOW</a>
+          <!-- Updated BOOK NOW Button -->
+          <a 
+            class="btn btn-view-now pop-up-modal-js booking" 
+            href="<?php echo !empty($_SESSION['loggedin']) ? 'booking-form.php' : '#'; ?>"
+            <?php if (empty($_SESSION['loggedin'])) echo 'onclick="openLoginModal(event)"'; ?>
+          >
+            BOOK NOW
+          </a>
         </div>
       </div>
       <img
@@ -217,7 +224,7 @@ require __DIR__ . "/Client/includes/userdata.php";
     const isLoggedIn = <?php echo isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] ? 'true' : 'false'; ?>;
     const message = "<?php echo $message; ?>";
     if (!isLoggedIn) {
-      toggleDropdown.classList.add('d-none');
+      toggleDropdown?.classList.add('d-none');
     }
   </script>
   <!-- toast start -->
