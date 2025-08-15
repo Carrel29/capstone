@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: Aug 15, 2025 at 01:34 AM
+-- Generation Time: Aug 15, 2025 at 05:54 AM
 -- Server version: 9.1.0
 -- PHP Version: 8.3.14
 
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS `bookings` (
   `btattendees` int DEFAULT NULL,
   `btservices` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `btmessage` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  `status` enum('Pending','Approved','Canceled') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Pending',
+  `status` enum('Pending','Approved','Canceled','Completed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Pending',
   `payment_status` enum('unpaid','partial','paid') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'unpaid',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -213,7 +213,7 @@ CREATE TABLE IF NOT EXISTS `btuser` (
   PRIMARY KEY (`bt_user_id`),
   UNIQUE KEY `email_unique` (`bt_email`),
   KEY `fk_btuser_privilege` (`bt_privilege_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `btuser`
@@ -223,7 +223,8 @@ INSERT INTO `btuser` (`bt_user_id`, `bt_first_name`, `bt_last_name`, `bt_email`,
 (1, 'Ezekiel', 'Vasquez', 'sample@gmail.com', 2147483647, '$2y$10$5NYsPUc..HCNtkW11wQij.llEs.JiEtXOx8lbHVhvVy71fKlety12', '2025-01-27 13:10:45', NULL, 1, 2),
 (2, 'zek', 'zek', 'data@gmail.com', 2147483647, '$2y$10$/brk2VoDTrJUOlkKFeL53eA0uab.8vDlDBzx8TvdnQ7UvJpDTp9Da', '2025-01-27 16:35:38', NULL, 1, 1),
 (5, 'Geuel', 'Cabello', 'geuelcabello@gmail.com', 2147483647, '$2y$10$FqTA6C8vMaZcjJvU793uieuyP8ysbyDkhAlecO3VF7XzBOXH38Poe', '2025-02-06 09:43:33', NULL, 1, 2),
-(6, 'Carrel', 'john', 'buenaventura@gmail.com', 2147483647, '$2y$10$.lj6pj0Dv2lCSlfJlQ5egu9s6.S61dPJJvzo.8MGuRT3ZpdbRMoFu', '2025-05-11 22:52:19', NULL, 1, 2);
+(6, 'Carrel', 'john', 'buenaventura@gmail.com', 2147483647, '$2y$10$.lj6pj0Dv2lCSlfJlQ5egu9s6.S61dPJJvzo.8MGuRT3ZpdbRMoFu', '2025-05-11 22:52:19', NULL, 1, 2),
+(10, 'Lance', 'Mendoza', 'lanceaeronm@gmail.com', 2147483647, '$2y$10$mS1gZumugLfqSxfBw1/zVO0s/bbVBk5ccyH5/Uu/1brNr9gkleZVK', '2025-08-15 13:42:50', NULL, 1, 1);
 
 -- --------------------------------------------------------
 
