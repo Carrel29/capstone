@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: Aug 14, 2025 at 11:21 AM
+-- Generation Time: Aug 15, 2025 at 01:34 AM
 -- Server version: 9.1.0
 -- PHP Version: 8.3.14
 
@@ -20,40 +20,6 @@ SET time_zone = "+00:00";
 --
 -- Database: `btonedatabase`
 --
-
--- --------------------------------------------------------
-
---
--- Table structure for table `admin_users`
---
-
-DROP TABLE IF EXISTS `admin_users`;
-CREATE TABLE IF NOT EXISTS `admin_users` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `first_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `last_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `profile_picture` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `role` enum('admin','employee') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'employee',
-  `reset_code` varchar(6) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `code_expiry` datetime DEFAULT NULL,
-  `last_request_time` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `admin_users`
---
-
-INSERT INTO `admin_users` (`id`, `email`, `password`, `created_at`, `first_name`, `last_name`, `profile_picture`, `role`, `reset_code`, `code_expiry`, `last_request_time`) VALUES
-(1, 'admin@example.com', '$2y$10$NdWy5LG/0qI8BrzdXYHd..MLzjKsZFrR70XQT7O5yST12fjvZxOXO', '2025-01-24 06:04:05', 'Lance', 'Mendoza', NULL, 'admin', NULL, NULL, NULL),
-(25, 'admin3@example.com', '$2y$10$rcjetnFVZ121gpBlrO8/DedUFXjFGDL6aErV.BCOFryX5XllczoQq', '2025-02-24 10:51:38', 'dsadsa', 'Lebron', NULL, 'employee', NULL, NULL, NULL),
-(28, 'admin@example2.com', 'reset_required', '2025-04-11 04:44:16', 'James', 'Lebron', NULL, 'employee', NULL, NULL, NULL),
-(31, 'lanceaeronm@gmail.com', '$2y$10$VVRMwg7fl2J/TsjGiJgQi.brf0a8NSDF5vrZqO4HzFmEtD2IkTyJi', '2025-05-09 09:21:23', 'James', 'David', NULL, 'employee', NULL, NULL, NULL),
-(32, 'admin33@example.com', '$2y$10$jq9zmnV0BZ3RIJcbZVteCODA/AIJq/.XKfO4UvGOHyvgnqJCIbfli', '2025-05-11 08:17:56', 'dsadsa', 'Lebron', NULL, 'employee', NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -115,8 +81,8 @@ CREATE TABLE IF NOT EXISTS `bookings` (
   `btattendees` int DEFAULT NULL,
   `btservices` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `btmessage` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-  `status` enum('Pending','Approved','Canceled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Pending',
-  `payment_status` enum('unpaid','partial','paid') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'unpaid',
+  `status` enum('Pending','Approved','Canceled') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Pending',
+  `payment_status` enum('unpaid','partial','paid') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'unpaid',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -303,124 +269,6 @@ INSERT INTO `categories` (`id`, `name`, `archived`) VALUES
 (2, 'breakfast', 0),
 (3, 'addons', 0),
 (4, 'milktea', 0);
-
--- --------------------------------------------------------
-
---
--- Table structure for table `client_users`
---
-
-DROP TABLE IF EXISTS `client_users`;
-CREATE TABLE IF NOT EXISTS `client_users` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `first_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `last_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `phone_number` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `verification_code` varchar(6) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `is_verified` tinyint(1) DEFAULT '0',
-  `verification_expiry` datetime DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `last_login` datetime DEFAULT NULL,
-  `status` enum('active','inactive','suspended') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'active',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`),
-  KEY `idx_email` (`email`),
-  KEY `idx_status` (`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `client_users`
---
-
-INSERT INTO `client_users` (`id`, `email`, `password`, `first_name`, `last_name`, `phone_number`, `verification_code`, `is_verified`, `verification_expiry`, `created_at`, `updated_at`, `last_login`, `status`) VALUES
-(2, 'lanceaeronm@gmiail.com', '$2y$10$8aXaSnpyru8WweVJnazJkOXMpi1.yUTBS/QCKMY.AIPozqxxVdw3i', 'Lance', 'Mendoza', '08666057991', NULL, 0, NULL, '2025-08-13 10:08:49', '2025-08-13 10:08:49', NULL, 'active');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `customer_inquiries`
---
-
-DROP TABLE IF EXISTS `customer_inquiries`;
-CREATE TABLE IF NOT EXISTS `customer_inquiries` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `customer_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `contact_email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `contact_phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `inquiry_date` date NOT NULL,
-  `event_date` date DEFAULT NULL,
-  `event_time` time DEFAULT NULL,
-  `status` enum('Pending','Confirmed','Ongoing','Completed','Cancelled','Archived','In Cart') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'Pending',
-  `event_package` enum('Wedding','18th Birthday','Welcome Party','Portable Bar','Portable Sound and Lights','Catering') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `location_type` enum('On-site','Custom') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'On-site',
-  `additional_details` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `total_cost` decimal(10,2) DEFAULT NULL,
-  `down_payment_status` enum('pending','partial','paid') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'pending',
-  `down_payment_amount` decimal(10,2) DEFAULT '0.00',
-  `payment_status` enum('pending','partial','paid') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT 'pending',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `travel_fee` decimal(10,2) NOT NULL DEFAULT '0.00',
-  `last_updated` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `time_slot` enum('Morning','Afternoon','Evening') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci GENERATED ALWAYS AS ((case when (cast(`event_time` as time) < _cp850'12:00:00') then _cp850'Morning' when (cast(`event_time` as time) < _cp850'17:00:00') then _cp850'Afternoon' else _cp850'Evening' end)) STORED,
-  `payment_notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-  `payment_verified` tinyint(1) DEFAULT '0',
-  `payment_method_id` int DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_inquiry_date` (`inquiry_date`),
-  KEY `idx_event_package` (`event_package`),
-  KEY `idx_status` (`status`),
-  KEY `status` (`status`),
-  KEY `event_date` (`event_date`),
-  KEY `customer_name` (`customer_name`),
-  KEY `idx_booking_time` (`event_date`,`time_slot`,`location_type`,`status`),
-  KEY `fk_payment_method` (`payment_method_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `customer_inquiries`
---
-
-INSERT INTO `customer_inquiries` (`id`, `customer_name`, `contact_email`, `contact_phone`, `inquiry_date`, `event_date`, `event_time`, `status`, `event_package`, `location_type`, `additional_details`, `total_cost`, `down_payment_status`, `down_payment_amount`, `payment_status`, `created_at`, `updated_at`, `travel_fee`, `last_updated`, `payment_notes`, `payment_verified`, `payment_method_id`) VALUES
-(2, 'Jane Smith', 'jane@example.com', '555-5678', '2024-01-20', '2024-03-15', NULL, 'Completed', 'Welcome Party', 'On-site', 'Corporate welcome event', 3500.00, 'pending', 0.00, 'pending', '2025-01-24 05:58:14', '2025-03-18 11:26:48', 0.00, '2025-03-18 11:26:48', NULL, 0, NULL),
-(3, 'Mike Johnson', 'mike@example.com', '555-9012', '2024-01-25', '2024-04-10', NULL, 'Completed', 'Portable Bar', 'On-site', 'Birthday party bar service', 1200.00, 'pending', 0.00, 'pending', '2025-01-24 05:58:14', '2025-03-18 11:31:15', 0.00, '2025-03-18 11:31:15', NULL, 0, NULL),
-(4, 'Sarah Williams', 'sarah@example.com', '555-3456', '2024-02-01', '2024-05-05', NULL, 'Confirmed', 'Catering', 'On-site', 'Company annual dinner', 7500.00, 'pending', 0.00, 'pending', '2025-01-24 05:58:14', '2025-01-24 05:58:14', 0.00, '2025-03-18 11:16:02', NULL, 0, NULL),
-(8, 'Sofia Rodriguez', 'sofia.r@email.com', '345-678-9012', '2025-02-01', '2025-08-01', NULL, 'Completed', 'Welcome Party', 'On-site', 'Corporate welcome party for new employees, 75 guests expected', 3750.00, 'paid', 0.00, 'pending', '2025-02-01 09:21:34', '2025-04-10 03:07:19', 0.00, '2025-04-10 03:07:19', NULL, 0, NULL),
-(9, 'David Chen', 'david.c@email.com', '456-789-0123', '2025-02-01', '2025-08-15', NULL, 'Pending', 'Portable Bar', 'On-site', 'Beach party setup, needs mobile bar and bartender service', 1200.00, 'partial', 0.00, 'pending', '2025-02-01 09:21:34', '2025-04-11 04:04:49', 0.00, '2025-04-11 04:04:49', NULL, 0, NULL),
-(11, 'Lanz ', 'lanceaeronm@gmail.com', '0966057991', '2025-02-06', '2025-02-06', NULL, 'Confirmed', 'Welcome Party', 'On-site', '', 1900.00, 'pending', 0.00, 'pending', '2025-02-06 01:48:30', '2025-03-01 04:56:10', 0.00, '2025-03-18 11:16:02', NULL, 0, NULL),
-(12, 'PAPA p', 'lanceaeronm@gmail.com', '0966057991', '2025-03-01', '2025-03-05', NULL, 'Completed', 'Catering', 'On-site', '', 3250.00, 'pending', 0.00, 'pending', '2025-03-01 06:42:55', '2025-03-18 11:27:02', 0.00, '2025-03-18 11:27:02', NULL, 0, NULL),
-(13, 'MAMA D', 'lanceaeronm@gmail.com', '0966057991', '2025-03-01', '2025-03-03', NULL, 'Confirmed', '18th Birthday', 'On-site', '', 4550.00, 'pending', 0.00, 'pending', '2025-03-01 06:43:38', '2025-03-01 13:34:43', 0.00, '2025-03-18 11:16:02', NULL, 0, NULL),
-(14, 'MAMA D', 'lanceaeronm@gmail.com', '0966057991', '2025-03-01', '2025-03-04', NULL, 'Confirmed', 'Welcome Party', 'On-site', '', 3650.00, 'pending', 0.00, 'pending', '2025-03-01 06:44:15', '2025-03-01 13:34:43', 0.00, '2025-03-18 11:16:02', NULL, 0, NULL),
-(15, 'Lanz ', 'lanceaeronm@gmail.com', '0966057991', '2025-04-06', '2025-04-17', '15:24:00', 'Pending', 'Wedding', 'On-site', '0', 1420.00, 'pending', 0.00, 'pending', '2025-04-06 07:24:46', '2025-04-06 07:53:08', 0.00, '2025-04-06 07:53:08', NULL, 0, NULL),
-(16, 'Lance', 'lanceaeronm@gmail.com', '0966057991', '2025-04-09', '2025-04-17', '17:48:00', 'Confirmed', 'Wedding', 'On-site', '0', 2320.00, 'paid', 1856.00, 'partial', '2025-04-09 09:48:19', '2025-04-11 04:13:06', 0.00, '2025-04-11 04:13:06', NULL, 0, NULL),
-(17, 'Carrel', 'carrel@gmail.com', '09`12345678', '2025-05-11', '2025-05-06', '23:49:00', 'Confirmed', 'Welcome Party', 'On-site', '0', 600.00, 'pending', 0.00, 'pending', '2025-05-11 15:49:33', '2025-05-11 20:08:25', 0.00, '2025-05-11 20:08:25', NULL, 0, NULL),
-(18, 'Carrel', 'buenaventura@gmail.com', '0912314341', '2025-05-12', '2025-05-08', '04:08:00', 'Confirmed', 'Portable Bar', 'On-site', '0', 850.00, 'pending', 0.00, 'pending', '2025-05-11 20:08:02', '2025-05-11 20:08:25', 500.00, '2025-05-11 20:08:25', NULL, 0, NULL),
-(19, 'Carrel', 'carrel@gmail.com', '0912314341', '2025-05-12', '2025-05-12', '11:24:00', 'Pending', 'Wedding', 'On-site', '0', 150.00, 'pending', 0.00, 'pending', '2025-05-12 03:24:20', '2025-05-12 03:24:20', 0.00, '2025-05-12 03:24:20', NULL, 0, NULL),
-(20, 'DANIELA CAYETANO PAPA', 'papadaniela408@gmail.com', '09`12345678', '2025-05-12', '2025-05-14', '11:32:00', 'Pending', '18th Birthday', 'On-site', '0', 20.00, 'pending', 0.00, 'pending', '2025-05-12 03:30:54', '2025-05-12 03:30:54', 0.00, '2025-05-12 03:30:54', NULL, 0, NULL),
-(21, 'DANIELA CAYETANO PAPA', 'papadaniela408@gmail.com', '0912314341', '2025-05-12', '2025-05-13', '12:05:00', 'Pending', 'Catering', 'On-site', '0', 900.00, 'pending', 0.00, 'pending', '2025-05-12 04:04:34', '2025-05-12 04:04:34', 0.00, '2025-05-12 04:04:34', NULL, 0, NULL),
-(22, 'Admin', 'admin@example.com', '92709123', '2025-05-12', '2025-05-07', '13:00:00', 'In Cart', '18th Birthday', 'On-site', '0', 120.00, 'pending', 0.00, 'pending', '2025-05-12 06:06:18', '2025-05-12 06:06:18', 0.00, '2025-05-12 06:06:18', NULL, 0, NULL),
-(23, 'Geuel Cabello', 'admin@example.com', '92709123', '2025-05-12', '2025-05-22', '19:10:00', 'Pending', '18th Birthday', 'On-site', 'hi', 500.00, 'pending', 0.00, 'pending', '2025-05-12 11:08:03', '2025-05-12 11:08:03', 0.00, '2025-05-12 11:08:03', NULL, 0, NULL),
-(24, 'Geuel Cabello', 'admin@example.com', '92709123', '2025-05-12', '2025-05-22', '19:10:00', 'In Cart', '18th Birthday', 'On-site', 'hi', 500.00, 'pending', 0.00, 'pending', '2025-05-12 11:08:07', '2025-05-12 11:08:07', 0.00, '2025-05-12 11:08:07', NULL, 0, NULL),
-(25, 'Geuel Cabello', 'admin@example.com', '92709123', '2025-05-12', '2025-05-22', '19:10:00', 'In Cart', '18th Birthday', 'On-site', 'hi', 500.00, 'pending', 0.00, 'pending', '2025-05-12 11:08:09', '2025-05-12 11:08:09', 0.00, '2025-05-12 11:08:09', NULL, 0, NULL),
-(27, 'Geuel Cabello', 'admin@example.com', '92709123', '2025-05-12', '2025-05-23', '19:14:00', 'Pending', 'Wedding', 'On-site', '', 800.00, 'pending', 0.00, 'pending', '2025-05-12 11:10:50', '2025-05-12 11:10:50', 0.00, '2025-05-12 11:10:50', NULL, 0, NULL),
-(30, 'Geuel Cabello', 'admin@example.com', '92709123', '2025-05-12', '2025-05-13', '19:54:00', 'Pending', 'Catering', 'On-site', 'none', 100.00, 'pending', 0.00, 'pending', '2025-05-12 11:48:58', '2025-05-12 11:48:58', 0.00, '2025-05-12 11:48:58', NULL, 0, NULL),
-(31, 'Geuel Cabello', 'admin@example.com', '92709123', '2025-05-12', '2025-05-29', '23:56:00', 'Pending', 'Portable Bar', 'On-site', '', 650.00, 'pending', 0.00, 'pending', '2025-05-12 11:56:18', '2025-05-12 11:56:18', 500.00, '2025-05-12 11:56:18', NULL, 0, NULL),
-(33, 'Geuel Cabello', 'admin@example.com', '92709123', '2025-05-12', '2025-05-21', '20:28:00', 'Pending', 'Catering', 'On-site', '', 250.00, 'paid', 250.00, 'paid', '2025-05-12 12:23:27', '2025-05-12 13:08:37', 0.00, '2025-05-12 13:08:37', NULL, 0, NULL),
-(34, 'Geuel Cabello', 'admin@example.com', '92709123', '2025-05-12', '2025-05-16', '20:45:00', 'In Cart', 'Welcome Party', 'On-site', '', 270.00, 'paid', 260.00, 'partial', '2025-05-12 12:44:39', '2025-05-12 13:00:03', 0.00, '2025-05-12 13:00:03', NULL, 0, NULL),
-(35, 'Geuel Cabello', 'admin@example.com', '92709123', '2025-05-12', '2025-05-16', '20:52:00', 'In Cart', 'Portable Sound and Lights', 'On-site', '', 1000.00, 'pending', 0.00, 'pending', '2025-05-12 12:50:38', '2025-05-12 12:50:38', 500.00, '2025-05-12 12:50:38', NULL, 0, NULL),
-(36, 'Geuel Cabello', 'admin@example.com', '92709123', '2025-05-12', '2025-05-30', '21:32:00', 'Pending', 'Portable Bar', 'On-site', '', 1300.00, 'paid', 520.00, 'partial', '2025-05-12 13:27:15', '2025-05-12 13:27:48', 500.00, '2025-05-12 13:27:48', NULL, 0, NULL),
-(37, 'Geuel Cabello', 'geuelcabello@gmail.com', '92709123', '2025-05-12', '2025-05-29', '21:00:00', 'Pending', 'Welcome Party', 'On-site', '', 950.00, 'pending', 0.00, 'pending', '2025-05-12 13:56:28', '2025-05-12 13:56:28', 0.00, '2025-05-12 13:56:28', NULL, 0, NULL),
-(38, 'Geuel Cabello', 'geuelcabello@gmail.com', '92709123', '2025-05-12', '2025-05-02', '21:58:00', 'Pending', 'Welcome Party', 'On-site', '', 950.00, 'pending', 0.00, 'pending', '2025-05-12 13:57:44', '2025-05-12 13:57:44', 0.00, '2025-05-12 13:57:44', NULL, 0, NULL),
-(39, 'Geuel Cabello', 'geuelcabello@gmail.com', '92709123', '2025-05-12', '2025-05-23', '14:19:00', 'Pending', 'Wedding', 'On-site', '', 800.00, 'pending', 0.00, 'pending', '2025-05-12 14:19:43', '2025-05-12 14:19:43', 0.00, '2025-05-12 14:19:43', NULL, 0, NULL),
-(40, 'Geuel Cabello', 'geuelcabello@gmail.com', '92709123', '2025-05-12', '2025-05-23', '14:19:00', 'Pending', 'Wedding', 'On-site', '', 950.00, 'paid', 380.00, 'partial', '2025-05-12 14:20:23', '2025-05-12 14:20:34', 0.00, '2025-05-12 14:20:34', NULL, 0, NULL),
-(41, 'Geuel Cabello', 'geuelcabello@gmail.com', '92709123', '2025-05-12', '2025-05-23', '14:19:00', 'Pending', 'Wedding', 'On-site', '', 950.00, 'paid', 380.00, 'partial', '2025-05-12 14:33:25', '2025-05-12 14:37:23', 0.00, '2025-05-12 14:37:23', NULL, 1, NULL),
-(42, 'Geuel Cabello', 'geuelcabello@gmail.com', '92709123', '2025-05-12', '2025-06-29', '22:40:00', 'Pending', 'Wedding', 'On-site', '', 250.00, 'paid', 100.00, 'partial', '2025-05-12 14:39:01', '2025-05-12 14:39:19', 0.00, '2025-05-12 14:39:19', NULL, 1, NULL),
-(43, 'Geuel Cabello', 'geuelcabello@gmail.com', '92709123', '2025-05-12', '2025-05-16', '22:43:00', 'Pending', 'Portable Sound and Lights', 'On-site', '', 650.00, 'paid', 260.00, 'partial', '2025-05-12 14:41:29', '2025-05-12 14:41:32', 500.00, '2025-05-12 14:41:32', NULL, 1, NULL),
-(44, 'Geuel Cabello', 'geuelcabello@gmail.com', '92709123', '2025-05-12', '2025-05-17', '22:45:00', 'Pending', 'Catering', 'On-site', '', 170.00, 'paid', 68.00, 'partial', '2025-05-12 14:42:48', '2025-05-12 14:42:52', 0.00, '2025-05-12 14:42:52', NULL, 1, NULL),
-(45, 'Geuel Cabello', 'geuelcabello@gmail.com', '92709123', '2025-05-12', '2025-05-16', '15:44:00', 'Pending', 'Portable Bar', 'On-site', '', 1450.00, 'paid', 580.00, 'partial', '2025-05-12 14:44:31', '2025-05-12 14:44:34', 500.00, '2025-05-12 14:44:34', NULL, 1, NULL);
 
 -- --------------------------------------------------------
 
