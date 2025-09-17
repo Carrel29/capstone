@@ -1,3 +1,4 @@
+// modal.js
 document.addEventListener('DOMContentLoaded', function () {
     const modal = document.getElementById('historyModal');
     const historyBtn = document.getElementById('historyButton');

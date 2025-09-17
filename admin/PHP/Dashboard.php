@@ -123,7 +123,7 @@ $archivedData = getArchivedBookings($pdo);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Event Management Dashboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.css">
-    <link rel="stylesheet" href="assets_css\Admin_Dashboard.css">
+    <link rel="stylesheet" href="../assets_css/admin.css">
     <style>
         body {
             font-family:
@@ -140,8 +140,8 @@ $archivedData = getArchivedBookings($pdo);
         <h2>Admin Dashboard</h2>
     </div>
     <ul class="nav-menu">
-        <li><a href="dashboard.php">Dashboard</a></li>
-        <li><a href="add_user.php">Employee Management</a></li>
+        <li><a href="dashboard.php" >Dashboard</a></li>
+        <li><a href="add_user.php">Admin Management</a></li>
         <li><a href="calendar.php">Calendar</a></li>
         <li><a href="Inventory.php">Inventory</a></li>
         <li><a href="payment.php">Payments</a></li> <!-- Fixed line -->
@@ -152,47 +152,42 @@ $archivedData = getArchivedBookings($pdo);
 
         <main class="main-content">
             <div class="analytics-section">
-                <div class="chart-container">
-                    <h4 >Event Bookings</h4>
-                    <canvas id="bookingChart"></canvas>
-                </div>
-                <div class="month-details-container">
-                    <div class="month-navigation">
-                        <button id="prevMonth" class="nav-btn">&lt; Previous Month</button>
-                        <h2 id="currentMonthDisplay"><?php echo date('F Y'); ?></h2>
-                        <button id="nextMonth" class="nav-btn">Next Month &gt;</button>
-                    </div>
+    <div class="stat-card">
+        <h3>Total Bookings</h3>
+        <p id="totalBookings"><?php echo $currentMonthData['total_bookings'] ?? 0; ?></p>
+    </div>
+    <div class="stat-card">
+        <h3>Confirmed</h3>
+        <p id="confirmedBookings"><?php echo $currentMonthData['confirmed_bookings'] ?? 0; ?></p>
+    </div>
+    <div class="stat-card">
+        <h3>Pending</h3>
+        <p id="pendingBookings"><?php echo $currentMonthData['pending_bookings'] ?? 0; ?></p>
+    </div>
+    <div class="stat-card">
+        <h3>Popular Packages</h3>
+        <p id="popularPackages"><?php echo $currentMonthData['popular_packages'] ?? 'N/A'; ?></p>
+    </div>
+</div>
 
-                        <div class="month-stats">
-                            <div class="stat-card">
-                                <h3>Total Bookings</h3>
-                                <p id="totalBookings">
-                                    <?php echo $currentMonthData['total_bookings'] ?? 0; ?>
-                                </p>
-                            </div>
-                            <div class="stat-card">
-                                <h3>Confirmed Bookings</h3>
-                                <p id="confirmedBookings">
-                                    <?php echo $currentMonthData['confirmed_bookings'] ?? 0; ?>
-                                </p>
-                            </div>
-                            <div class="stat-card">
-                                <h3>Pending Bookings</h3>
-                                <p id="pendingBookings">
-                                    <?php echo $currentMonthData['pending_bookings'] ?? 0; ?>
-                                </p>
-                            </div>
-                            <div class="stat-card">
-                                <h3>Popular Packages</h3>
-                                <p id="popularPackages">
-                                    <?php echo $currentMonthData['popular_packages'] ?? 'N/A'; ?>
-                                </p>
-                            </div>
-                        </div>
-                <div class="chart-container">
-                    <canvas id="monthlyTrendChart"></canvas>
-                </div>
-            </div>
+<!-- Charts Row -->
+<div class="charts-section">
+    <div class="chart-card">
+        <h4>Event Bookings</h4>
+        <canvas id="bookingChart"></canvas>
+    </div>
+    <div class="chart-card">
+        <h4>Monthly Trends</h4>
+        <canvas id="monthlyTrendChart"></canvas>
+    </div>
+</div>
+<!-- Month Navigation -->
+<div class="month-navigation">
+    <button id="prevMonth" class="nav-btn">&lt; Previous Month</button>
+    <h2 id="currentMonthDisplay"><?php echo date('F Y'); ?></h2>
+    <button id="nextMonth" class="nav-btn">Next Month &gt;</button>
+</div>
+
             <div class="table-header">
                 <h3>Active Inquiries</h3>
                 <div class="table-actions">
@@ -238,16 +233,17 @@ $archivedData = getArchivedBookings($pdo);
                 </tbody>
             </table>
 
+
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <script>    
                 // Booking Analytics Chart
                 const monthlyData = <?php echo json_encode($monthlyBookings); ?>;               
                 const bookingAnalytics = <?php echo json_encode($bookingAnalytics); ?>;
             </script>
-            <script src="asset_js/status.js"></script>
-            <script src="asset_js/charts.js"></script>
-            <script src="asset_js/modal.js"></script>
-            
+            <script src="../asset_js/dashboard.js"></script>
+  
+                         <?php include __DIR__ . '/../includes/admin_list.php'; ?>    
+
             <div id="historyModal" class="modal">
                 <div class="modal-content">
                     <div class="modal-header">
