@@ -2,14 +2,14 @@
 session_start();
 
 // Check if user is logged in and is an admin
-if (!isset($_SESSION['user_logged_in']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_logged_in']) || $_SESSION['role'] !== 'ADMIN') {
     header("Location: Index.php");
     exit();
 }
 
 // Database Configuration
 $host = 'localhost';
-$dbname = 'capstone';
+$dbname = 'btonedatabase';
 $username = 'root';
 $password = '';
 
@@ -25,91 +25,110 @@ try {
     $error = "Database connection error: " . $e->getMessage();
 }
 
-// Add this after your database connection code
-function getUserCustomColors($pdo, $userId) {
-    $stmt = $pdo->prepare("SELECT bg_color, font_family FROM user_customization WHERE user_id = ?");
-    $stmt->execute([$userId]);
-    $colors = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $colors ?: ['bg_color' => '#e8f4f8', 'font_family' => 'Arial']; // Default colors
-}
-
-// Get user's custom colors
-$userColors = getUserCustomColors($pdo, $_SESSION['user_id']);
-
-// Handle form submission for adding new employee
+// Handle form submission for adding new admin
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'add_user') {
     try {
         // Collect form data
         $first_name = $_POST['first_name'];
-        $last_name = $_POST['last_name'];
-        $email = $_POST['email'];
-        $password = password_hash($_POST['password'], PASSWORD_DEFAULT); // Use secure password hashing
-        $role = 'employee'; // Force role to be employee
+        $last_name  = $_POST['last_name'];
+        $email      = $_POST['email'];
+        $phone      = $_POST['phone'];
+        $password   = password_hash($_POST['password'], PASSWORD_DEFAULT); // secure hashing
+
+        $bt_privilege_id = 1; // Always Admin
 
         // Check if email already exists
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM admin_users WHERE email = :email");
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM btuser WHERE bt_email = :email");
         $stmt->execute(['email' => $email]);
+        
         if ($stmt->fetchColumn() > 0) {
-            $error = "Email already exists";
+            $error = "❌ Email already exists";
         } else {
-            // Insert new employee
-            $stmt = $pdo->prepare("INSERT INTO admin_users (first_name, last_name, email, password, role) 
-                       VALUES (:first_name, :last_name, :email, :password, :role)");
+            // Insert new admin
+            $stmt = $pdo->prepare("
+                INSERT INTO btuser 
+                    (bt_first_name, bt_last_name, bt_email, bt_phone_number, bt_password_hash, bt_privilege_id)
+                VALUES 
+                    (:first_name, :last_name, :email, :phone, :password, :privilege_id)
+            ");
 
             $stmt->execute([
-                'first_name' => $first_name,
-                'last_name' => $last_name,  
-                'email' => $email,
-                'password' => $password,
-                'role' => $role
+                'first_name'   => $first_name,
+                'last_name'    => $last_name,  
+                'email'        => $email,
+                'phone'        => $phone,
+                'password'     => $password,
+                'privilege_id' => $bt_privilege_id
             ]);
 
-            $success = "Employee added successfully";
+            $success = "✅ Admin added successfully";
         }
     } catch (PDOException $e) {
-        $error = "Error: " . $e->getMessage();
+        $error = "😥 Error: " . $e->getMessage();
     }
 }
-
 // Handle edit user action
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'edit_user') {
     try {
-        $user_id = $_POST['user_id'];
+        $user_id    = $_POST['user_id'];
         $first_name = $_POST['first_name'];
-        $last_name = $_POST['last_name'];
-        $email = $_POST['email'];
-        $role = 'employee'; // Force role to be employee
-        
+        $last_name  = $_POST['last_name'];
+        $email      = $_POST['email'];
+        $phone      = $_POST['phone'];
+
+        // Always force Admin
+        $bt_privilege_id = 1;
+
         // Check if password should be updated
         if (!empty($_POST['password'])) {
             $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("UPDATE admin_users SET first_name = :first_name, last_name = :last_name, 
-                                   email = :email, password = :password, role = :role WHERE id = :id");
+
+            $stmt = $pdo->prepare("
+                UPDATE btuser 
+                SET bt_first_name    = :first_name, 
+                    bt_last_name     = :last_name, 
+                    bt_email         = :email, 
+                    bt_phone_number  = :phone,
+                    bt_password_hash = :password,
+                    bt_privilege_id  = :privilege_id
+                WHERE bt_user_id     = :id
+            ");
+
             $params = [
-                'first_name' => $first_name,
-                'last_name' => $last_name,
-                'email' => $email,
-                'password' => $password,
-                'role' => $role,
-                'id' => $user_id
+                'first_name'   => $first_name,
+                'last_name'    => $last_name,
+                'email'        => $email,
+                'phone'        => $phone,
+                'password'     => $password,
+                'privilege_id' => $bt_privilege_id,
+                'id'           => $user_id
             ];
         } else {
-            $stmt = $pdo->prepare("UPDATE admin_users SET first_name = :first_name, last_name = :last_name, 
-                                   email = :email, role = :role WHERE id = :id");
+            $stmt = $pdo->prepare("
+                UPDATE btuser 
+                SET bt_first_name    = :first_name, 
+                    bt_last_name     = :last_name, 
+                    bt_email         = :email, 
+                    bt_phone_number  = :phone,
+                    bt_privilege_id  = :privilege_id
+                WHERE bt_user_id     = :id
+            ");
+
             $params = [
-                'first_name' => $first_name,
-                'last_name' => $last_name,
-                'email' => $email,
-                'role' => $role,
-                'id' => $user_id
+                'first_name'   => $first_name,
+                'last_name'    => $last_name,
+                'email'        => $email,
+                'phone'        => $phone,
+                'privilege_id' => $bt_privilege_id,
+                'id'           => $user_id
             ];
         }
         
         $stmt->execute($params);
-        $success = "Employee updated successfully";
+        $success = "✅ Admin updated successfully";
         
     } catch (PDOException $e) {
-        $error = "Error: " . $e->getMessage();
+        $error = "😥 Error: " . $e->getMessage();
     }
 }
 
@@ -118,48 +137,54 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     try {
         $user_id = $_POST['user_id'];
         
-        // First, retrieve user information to be stored in archived_users table
-        $stmt = $pdo->prepare("SELECT * FROM admin_users WHERE id = :id");
+        // Fetch user
+        $stmt = $pdo->prepare("SELECT * FROM btuser WHERE bt_user_id = :id");
         $stmt->execute(['id' => $user_id]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($user) {
-            // Check if archived_users table exists, if not create it
-            $pdo->exec("CREATE TABLE IF NOT EXISTS archived_users (
-                id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                original_id INT(11) NOT NULL,
-                email VARCHAR(100) NOT NULL,
-                first_name VARCHAR(50) NOT NULL,
-                last_name VARCHAR(50) NOT NULL,
-                profile_picture VARCHAR(255) DEFAULT NULL,
-                role ENUM('admin','employee') NOT NULL,
-                archived_at TIMESTAMP NOT NULL DEFAULT current_timestamp(),
-                account_type VARCHAR(20) NOT NULL DEFAULT 'admin_user'
-            )");
+            // Create archived_users if not exists
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS archived_users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    original_id INT NOT NULL,
+                    bt_first_name VARCHAR(50) NOT NULL,
+                    bt_last_name VARCHAR(50) NOT NULL,
+                    bt_email VARCHAR(100) NOT NULL,
+                    bt_phone_number VARCHAR(20),
+                    bt_password_hash VARCHAR(255) NOT NULL,
+                    bt_privilege_id INT NOT NULL,
+                    archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ");
             
-            // Insert into archived_users table
-            $stmt = $pdo->prepare("INSERT INTO archived_users (original_id, email, first_name, last_name, profile_picture, role, account_type) 
-                VALUES (:original_id, :email, :first_name, :last_name, :profile_picture, :role, 'admin_user')");
-                
+            // Insert into archive
+            $stmt = $pdo->prepare("
+                INSERT INTO archived_users
+                    (original_id, bt_first_name, bt_last_name, bt_email, bt_phone_number, bt_password_hash, bt_privilege_id)
+                VALUES
+                    (:original_id, :first_name, :last_name, :email, :phone, :password, :privilege_id)
+            ");
             $stmt->execute([
-                'original_id' => $user['id'],
-                'email' => $user['email'],
-                'first_name' => $user['first_name'],
-                'last_name' => $user['last_name'],
-                'profile_picture' => $user['profile_picture'],
-                'role' => $user['role']
+                'original_id'  => $user['bt_user_id'],
+                'first_name'   => $user['bt_first_name'],
+                'last_name'    => $user['bt_last_name'],
+                'email'        => $user['bt_email'],
+                'phone'        => $user['bt_phone_number'],
+                'password'     => $user['bt_password_hash'],
+                'privilege_id' => $user['bt_privilege_id']
             ]);
             
-            // Delete from admin_users table
-            $stmt = $pdo->prepare("DELETE FROM admin_users WHERE id = :id");
+            // Delete from btuser
+            $stmt = $pdo->prepare("DELETE FROM btuser WHERE bt_user_id = :id");
             $stmt->execute(['id' => $user_id]);
             
-            $success = "Employee archived successfully";
+            $success = "✅ Admin archived successfully";
         } else {
-            $error = "Employee not found";
+            $error = "❌ Admin not found";
         }
     } catch (PDOException $e) {
-        $error = "Error: " . $e->getMessage();
+        $error = "😥 Error: " . $e->getMessage();
     }
 }
 
@@ -168,277 +193,276 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     try {
         $archive_id = $_POST['archive_id'];
         
-        // First, retrieve archived user information
-        $stmt = $pdo->prepare("SELECT * FROM archived_users WHERE id = :id AND account_type = 'admin_user'");
+        // Fetch archived user
+        $stmt = $pdo->prepare("SELECT * FROM archived_users WHERE id = :id");
         $stmt->execute(['id' => $archive_id]);
         $archived_user = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($archived_user) {
-            // Check if email already exists in active users
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM admin_users WHERE email = :email");
-            $stmt->execute(['email' => $archived_user['email']]);
+            // Check if email already exists in btuser
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM btuser WHERE bt_email = :email");
+            $stmt->execute(['email' => $archived_user['bt_email']]);
             if ($stmt->fetchColumn() > 0) {
-                $error = "Cannot restore employee. Email already exists in active employees.";
+                $error = "❌ Cannot restore admin. Email already exists.";
             } else {
-                // Insert back into admin_users table with role forced to employee
-                $stmt = $pdo->prepare("INSERT INTO admin_users (email, password, first_name, last_name, profile_picture, role) 
-                    VALUES (:email, :password, :first_name, :last_name, :profile_picture, 'employee')");
+                // Insert back to btuser
+                $stmt = $pdo->prepare("
+                    INSERT INTO btuser
+                        (bt_first_name, bt_last_name, bt_email, bt_phone_number, bt_password_hash, bt_privilege_id)
+                    VALUES
+                        (:first_name, :last_name, :email, :phone, :password, :privilege_id)
+                ");
                 $stmt->execute([
-                    'email' => $archived_user['email'],
-                    'password' => 'reset_required',
-                    'first_name' => $archived_user['first_name'],
-                    'last_name' => $archived_user['last_name'],
-                    'profile_picture' => $archived_user['profile_picture']
+                    'first_name'   => $archived_user['bt_first_name'],
+                    'last_name'    => $archived_user['bt_last_name'],
+                    'email'        => $archived_user['bt_email'],
+                    'phone'        => $archived_user['bt_phone_number'],
+                    'password'     => $archived_user['bt_password_hash'],
+                    'privilege_id' => 1  // Always restore as Admin
                 ]);
                 
-                // Delete from archived_users table
+                // Delete from archive
                 $stmt = $pdo->prepare("DELETE FROM archived_users WHERE id = :id");
                 $stmt->execute(['id' => $archive_id]);
                 
-                $success = "Employee restored successfully. Employee will need to reset password.";
+                $success = "✅ Admin restored successfully";
             }
         } else {
-            $error = "Archived employee not found";
+            $error = "❌ Archived admin not found";
         }
     } catch (PDOException $e) {
-        $error = "Error: " . $e->getMessage();
+        $error = "😥 Error: " . $e->getMessage();
     }
 }
+
 
 // Handle permanently delete user action
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'permanently_delete') {
     try {
         $archive_id = $_POST['archive_id'];
         
-        // Delete from archived_users table
-        $stmt = $pdo->prepare("DELETE FROM archived_users WHERE id = :id AND account_type = 'admin_user'");
+        $stmt = $pdo->prepare("DELETE FROM archived_users WHERE id = :id");
         $stmt->execute(['id' => $archive_id]);
         
         if ($stmt->rowCount() > 0) {
-            $success = "Employee permanently deleted";
+            $success = "🗑️ Archived admin permanently deleted";
         } else {
-            $error = "Employee not found";
+            $error = "❌ Archived admin not found";
         }
     } catch (PDOException $e) {
-        $error = "Error: " . $e->getMessage();
+        $error = "😥 Error: " . $e->getMessage();
     }
 }
 
-// Function to get all employees
+// Function to get all active admins
 function getUsers($pdo) {
-    $stmt = $pdo->query("SELECT * FROM admin_users WHERE role = 'employee' ORDER BY id DESC");
+    $stmt = $pdo->query("
+        SELECT * 
+        FROM btuser 
+        WHERE bt_privilege_id = 1 
+        ORDER BY bt_user_id DESC
+    ");
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Function to get all archived employees
+// Function to get all archived admins
 function getArchivedUsers($pdo) {
-    // Check if archived_users table exists
     try {
-        $stmt = $pdo->query("SELECT * FROM archived_users WHERE account_type = 'admin_user' AND role = 'employee' ORDER BY archived_at DESC");
+        $stmt = $pdo->query("
+            SELECT * 
+            FROM archived_users 
+            WHERE bt_privilege_id = 1 
+            ORDER BY archived_at DESC
+        ");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         return [];
     }
 }
-
-// Get users if database connection successful
-$users = ($pdo) ? getUsers($pdo) : [];
-$archived_users = ($pdo) ? getArchivedUsers($pdo) : [];
+$users = getUsers($pdo);
+$archived_users = getArchivedUsers($pdo);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Employee Management</title>
-    <link rel="stylesheet" href="assets_css/add_user.css">
-    <style>
-        body{
-            font-family: <?php echo htmlspecialchars($userColors['font_family']); ?>, sans-serif;
-        }
-    </style>
+    <title>Admin Management</title>
+    <link rel="stylesheet" href="../assets_css/admin.css">
 </head>
 <body>
-    <a href="dashboard.php" class="back-button">←</a>
-    
-    <div class="container">
-        <h1>Employee Management</h1>
-        
-        <?php if ($error): ?>
+<div class="dashboard-container">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="logo">
+            <h2>Admin Dashboard</h2>
+        </div>
+        <ul class="nav-menu">
+            <li><a href="dashboard.php">Dashboard</a></li>
+            <li><a href="add_user.php" class="active">Admin Management</a></li>
+            <li><a href="calendar.php">Calendar</a></li>
+            <li><a href="Inventory.php">Inventory</a></li>
+            <li><a href="payment.php">Payments</a></li>
+            <li><a href="Settings.php">Settings</a></li>
+            <li><a href="Index.php?logout=true">Logout</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <h1>Admin Management</h1>
+
+        <?php if (!empty($error)): ?>
             <div class="error"><?php echo $error; ?></div>
         <?php endif; ?>
-        
-        <?php if ($success): ?>
+
+        <?php if (!empty($success)): ?>
             <div class="success"><?php echo $success; ?></div>
         <?php endif; ?>
-        
+
+        <!-- Tabs -->
         <div class="tabs">
-            <div class="tab active" onclick="openTab('active-users')">Active Employees</div>
-            <div class="tab" onclick="openTab('archived-users')">Archived Employees</div>
-            <div class="tab" onclick="openTab('add-user')">Add New Employee</div>
+            <div class="tab active" onclick="openTab('active-users')">Active Admins</div>
+            <div class="tab" onclick="openTab('archived-users')">Archived Admins</div>
+            <div class="tab" onclick="openTab('add-user')">Add New Admin</div>
         </div>
-        
-        <!-- Active Users Tab -->
+
+        <!-- Active Admins -->
         <div id="active-users" class="tab-content">
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Created</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($users as $user): ?>
-                        <tr>
-                            <td><?php echo $user['id']; ?></td>
-                            <td><?php echo $user['first_name'] . ' ' . $user['last_name']; ?></td>
-                            <td><?php echo $user['email']; ?></td>
-                            <td><?php echo date('M j, Y', strtotime($user['created_at'])); ?></td>
-                            <td>
-                                <button class="action-btn edit-btn" onclick="editUser(<?php echo $user['id']; ?>, '<?php echo $user['first_name']; ?>', '<?php echo $user['last_name']; ?>', '<?php echo $user['email']; ?>')">Edit</button>
-                                <button class="action-btn archive-btn" onclick="confirmArchive(<?php echo $user['id']; ?>)">Archive</button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                        <?php if (empty($users)): ?>
-                        <tr>
-                            <td colspan="5" style="text-align: center;">No employees found</td>
-                        </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
+            <table class="customer-table">
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Created</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($users as $user): ?>
+                    <tr>
+                        <td><?= $user['bt_user_id']; ?></td>
+                        <td><?= $user['bt_first_name'].' '.$user['bt_last_name']; ?></td>
+                        <td><?= $user['bt_email']; ?></td>
+                        <td><?= $user['bt_phone_number']; ?></td>
+                        <td><?= date('M j, Y', strtotime($user['bt_created_at'])); ?></td>
+                        <td>
+                            <button class="history-button" onclick="editUser(
+                                <?= $user['bt_user_id']; ?>,
+                                '<?= $user['bt_first_name']; ?>',
+                                '<?= $user['bt_last_name']; ?>',
+                                '<?= $user['bt_email']; ?>',
+                                '<?= $user['bt_phone_number']; ?>'
+                            )">Edit</button>
+                            <button class="clear-archive-btn" onclick="confirmArchive(<?= $user['bt_user_id']; ?>)">Archive</button>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (empty($users)): ?>
+                    <tr><td colspan="6" style="text-align:center;">No admins found</td></tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
         </div>
-        
-        <!-- Archived Users Tab -->
-        <div id="archived-users" class="tab-content" style="display: none;">
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Archived Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($archived_users as $user): ?>
-                        <tr>
-                            <td><?php echo $user['id']; ?></td>
-                            <td><?php echo $user['first_name'] . ' ' . $user['last_name']; ?></td>
-                            <td><?php echo $user['email']; ?></td>
-                            <td><?php echo date('M j, Y', strtotime($user['archived_at'])); ?></td>
-                            <td>
-                                <button class="action-btn restore-btn" onclick="confirmRestore(<?php echo $user['id']; ?>)">Restore</button>
-                                <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $user['id']; ?>)">Delete</button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                        <?php if (empty($archived_users)): ?>
-                        <tr>
-                            <td colspan="5" style="text-align: center;">No archived employees found</td>
-                        </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
+
+        <!-- Archived Admins -->
+        <div id="archived-users" class="tab-content" style="display:none;">
+            <table class="customer-table">
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Archived Date</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($archived_users as $user): ?>
+                    <tr>
+                        <td><?= $user['id']; ?></td>
+                        <td><?= $user['bt_first_name'].' '.$user['bt_last_name']; ?></td>
+                        <td><?= $user['bt_email']; ?></td>
+                        <td><?= $user['bt_phone_number']; ?></td>
+                        <td><?= date('M j, Y', strtotime($user['archived_at'])); ?></td>
+                        <td>
+                            <button class="history-button" onclick="confirmRestore(<?= $user['id']; ?>)">Restore</button>
+                            <button class="clear-archive-btn" onclick="confirmDelete(<?= $user['id']; ?>)">Delete</button>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (empty($archived_users)): ?>
+                    <tr><td colspan="6" style="text-align:center;">No archived admins found</td></tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
         </div>
-        
-        <!-- Add User Tab -->
-        <div id="add-user" class="tab-content" style="display: none;">
-            <div class="add-user-container">
-                <h2>Add New Employee</h2>
-                
-                <form method="POST">
-                    <input type="hidden" name="action" value="add_user">
-                    <div class="form-group">
-                        <input type="text" name="first_name" placeholder="First Name" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="text" name="last_name" placeholder="Last Name" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="email" name="email" placeholder="Email" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="password" name="password" placeholder="Password" required>
-                    </div>
-                    <!-- Remove role selector since all new users will be employees -->
-                    <input type="hidden" name="role" value="employee">
-                    <div class="form-group">
-                        <button type="submit">Add Employee</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Edit User Modal -->
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2 class="modal-title">Edit Employee</h2>
-            
-            <form id="editForm" method="POST">
-                <input type="hidden" name="action" value="edit_user">
-                <input type="hidden" id="edit_user_id" name="user_id">
-                
-                <div class="form-group">
-                    <label for="edit_first_name">First Name</label>
-                    <input type="text" id="edit_first_name" name="first_name" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="edit_last_name">Last Name</label>
-                    <input type="text" id="edit_last_name" name="last_name" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="edit_email">Email</label>
-                    <input type="email" id="edit_email" name="email" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="edit_password">Password (leave blank to keep current)</label>
-                    <input type="password" id="edit_password" name="password">
-                </div>
-                
-                <!-- Remove role selector from edit form -->
-                <input type="hidden" name="role" value="employee">
-                
-                <div class="modal-footer">
-                    <button type="button" onclick="closeModal()" style="background-color: #7f8c8d;">Cancel</button>
-                    <button type="submit" style="background-color: #2c3e50;">Update Employee</button>
-                </div>
+
+        <!-- Add Admin -->
+        <div id="add-user" class="tab-content" style="display:none;">
+            <form method="POST">
+                <input type="hidden" name="action" value="add_user">
+                <input type="text" name="first_name" placeholder="First Name" required>
+                <input type="text" name="last_name" placeholder="Last Name" required>
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="text" name="phone" placeholder="Phone Number" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit" class="history-button">Add Admin</button>
             </form>
         </div>
+    </main>
+</div>
+
+<!-- ===================== -->
+<!-- Edit Admin Modal -->
+<!-- ===================== -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2 class="modal-title">Edit Admin</h2>
+        <form id="editForm" method="POST">
+            <input type="hidden" name="action" value="edit_user">
+            <input type="hidden" id="edit_user_id" name="user_id">
+
+            <div class="form-group">
+                <label for="edit_first_name">First Name</label>
+                <input type="text" id="edit_first_name" name="first_name" required>
+            </div>
+            <div class="form-group">
+                <label for="edit_last_name">Last Name</label>
+                <input type="text" id="edit_last_name" name="last_name" required>
+            </div>
+            <div class="form-group">
+                <label for="edit_phone">Phone Number</label>
+                <input type="text" id="edit_phone" name="phone" required>
+            </div>
+            <div class="form-group">
+                <label for="edit_email">Email</label>
+                <input type="email" id="edit_email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="edit_password">Password (leave blank to keep current)</label>
+                <input type="password" id="edit_password" name="password">
+            </div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal()" style="background-color: #7f8c8d;">Cancel</button>
+                <button type="submit" style="background-color: #2c3e50;">Update Admin</button>
+            </div>
+        </form>
     </div>
-    
-    <!-- Confirmation Modal -->
-    <div id="confirmModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeConfirmModal()">&times;</span>
-            <h2 class="modal-title" id="confirmTitle">Confirm Action</h2>
-            
-            <p id="confirmMessage">Are you sure you want to proceed?</p>
-            
-            <form id="confirmForm" method="POST">
-                <input type="hidden" id="confirm_action" name="action" value="">
-                <input type="hidden" id="confirm_id" name="user_id" value="">
-                
-                <div class="modal-footer">
-                    <button type="button" onclick="closeConfirmModal()" style="background-color: #7f8c8d;">Cancel</button>
-                    <button type="submit" id="confirmButton" style="background-color: #e74c3c;">Confirm</button>
-                </div>
-            </form>
-        </div>
+</div>
+
+<!-- ===================== -->
+<!-- Confirm Modal -->
+<!-- ===================== -->
+<div id="confirmModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeConfirmModal()">&times;</span>
+        <h2 class="modal-title" id="confirmTitle">Confirm Action</h2>
+        <p id="confirmMessage">Are you sure you want to proceed?</p>
+        <form id="confirmForm" method="POST">
+            <input type="hidden" id="confirm_action" name="action" value="">
+            <input type="hidden" id="confirm_id" name="archive_id" value="">
+            <div class="modal-footer">
+                <button type="button" onclick="closeConfirmModal()" style="background-color: #7f8c8d;">Cancel</button>
+                <button type="submit" id="confirmButton" style="background-color: #e74c3c;">Confirm</button>
+            </div>
+        </form>
     </div>
-    
-    <script src="asset_js/add_user.js"></script>
+</div>
+
+<script src="../asset_js/add_user.js"></script>
 </body>
 </html>

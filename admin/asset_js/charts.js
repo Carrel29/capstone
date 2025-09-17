@@ -1,4 +1,4 @@
-// Booking analytics pie chart
+// charts.js
 const ctx = document.getElementById('bookingChart').getContext('2d');
 new Chart(ctx, {
     type: 'pie',

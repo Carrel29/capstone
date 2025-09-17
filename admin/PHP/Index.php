@@ -84,99 +84,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 <head>
     <title>Admin Login</title>
-    <link rel="stylesheet" href="assets_css/Login.css">
-    <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-
-            background-size: 100% 95%;  /* Changed from 'cover' to '100% 100%' */
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-        }
-
-        .login-container {
-            background-color: #A08963;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 400px;
-            position: relative;
-        }
-
-        .login-container h2 {
-            color: white;
-            text-align: center;
-            margin-bottom: 1.5rem;
-        }
-
-        input[type="email"],
-        input[type="password"] {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 1rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
-        button[type="submit"] {
-            width: 100%;
-            padding: 10px;
-            background-color: #715c42;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        button[type="submit"]:hover {
-            background-color: #5d4c37;
-        }
-
-        .input-container {
-            position: relative;
-            margin-bottom: 1rem;
-        }
-        
-        .user-dropdown {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 10;
-            display: none;
-        }
-        
-        .user-dropdown.active {
-            display: block;
-        }
-        
-        .user-option {
-            padding: 10px;
-            cursor: pointer;
-        }
-        
-        .user-option:hover {
-            background-color: #f0f0f0;
-        }
-    </style>
+    <link rel="stylesheet" href="../assets_css/admin.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
 <body>
@@ -188,14 +98,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <form method="POST" id="loginForm">
             <div class="input-container">
                 <input type="email" id="email" name="email" placeholder="Email" required autocomplete="off">
-                <div class="user-dropdown" id="userDropdown">
-                    <?php foreach ($users as $user): ?>
-                        <div class="user-option" data-email="<?php echo htmlspecialchars($user['email']); ?>" data-name="<?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>">
-                            <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?> 
-                            <br><small><?php echo htmlspecialchars($user['email']); ?></small>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
             </div>
             <input type="password" id="password" name="password" placeholder="Password" required>
             <input type="hidden" id="direct_login" name="direct_login" value="false">

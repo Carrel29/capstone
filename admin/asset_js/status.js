@@ -1,4 +1,4 @@
-  // Replace the existing updateStatus function with this updated version
+  // status.js
   function updateStatus(customerName, newStatus) {
     if (!newStatus) return;
 
