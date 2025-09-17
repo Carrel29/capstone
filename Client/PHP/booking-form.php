@@ -3,7 +3,7 @@ session_start();
 include_once "../includes/loginSession.php";
 include_once "../includes/userData.php";
 include_once "../includes/allData.php";
-
+require_once "calendar-utils.php"; 
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
     header("Location: login.php");
     exit();
@@ -12,6 +12,14 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
 // Current timestamp and user info
 $current_utc = '2025-05-11 19:30:37';
 $user_login = 'Carrel29';
+
+
+$year = isset($_GET['year']) ? intval($_GET['year']) : date('Y');
+$month = isset($_GET['month']) ? intval($_GET['month']) : date('m');
+
+$bookings = getBookingsForMonth($pdo, $year, str_pad($month,2,"0",STR_PAD_LEFT));
+$firstDay = date('N', strtotime("$year-$month-01"));
+$daysInMonth = date('t', strtotime("$year-$month-01"));
 
 // Get user data
 $data = new AllData($pdo);
@@ -227,10 +235,34 @@ function calculateTotalCost($data) {
                         </select>
                     </div>
 
-                    <div>
-                        <label for="schedule">Schedule</label>
-                        <input type="datetime-local" name="btschedule" required>
-                    </div>
+                   <div style="max-width:400px;margin:auto;">
+    <h3 style="text-align:center;">
+        <a href="?year=<?=$month==1?$year-1:$year;?>&month=<?=$month==1?12:$month-1;?>">&#8592;</a>
+        <?=date('F Y', strtotime("$year-$month-01"));?>
+        <a href="?year=<?=$month==12?$year+1:$year;?>&month=<?=$month==12?1:$month+1;?>">&#8594;</a>
+    </h3>
+    <table style="width:100%;border-collapse:collapse;text-align:center;">
+        <tr>
+            <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+        </tr>
+        <tr>
+            <?php
+            for ($blank=1; $blank<$firstDay; $blank++) echo "<td></td>";
+            for ($day=1, $cell=$firstDay; $day<=$daysInMonth; $day++, $cell++) {
+                $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $day);
+                $color = isset($bookings[$dateStr]) ? getDayColor($bookings[$dateStr]) : 'green';
+                echo "<td style='background:$color;color:#fff;padding:8px;border:1px solid #ccc;'>$day</td>";
+                if ($cell%7==0) echo "</tr><tr>";
+            }
+            ?>
+        </tr>
+    </table>
+    <div style="margin-top:10px;">
+        <span style="background:green;color:white;padding:2px 8px;border-radius:4px;">Available</span>
+        <span style="background:yellow;color:black;padding:2px 8px;border-radius:4px;">Partially</span>
+        <span style="background:red;color:white;padding:2px 8px;border-radius:4px;">Fully</span>
+    </div>
+</div>
 
                     <div>
                         <label for="event duration">Event Duration</label>
