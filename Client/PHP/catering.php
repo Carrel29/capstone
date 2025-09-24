@@ -697,6 +697,7 @@ $total_price = $package_price + $addons_price;
                 align-items: center;
             }
         }
+        
     </style>
 </head>
 <body>
@@ -836,6 +837,11 @@ $total_price = $package_price + $addons_price;
                     Juice: <span id="juiceCount"><?php echo $selected_juice; ?></span>/2
                 </div>
                 
+  <div class="instruction-text" style="background: #e3f2fd; color: #1565c0; padding: 10px; border-radius: 5px; margin: 10px 0; border-left: 4px solid #2196f3;">
+        <strong>💡 Important:</strong> Please click the <strong>"Update Dish Selection"</strong> button after selecting your dishes to save your choices.
+    </div>
+
+
                 <form method="POST" id="dishForm">
                     <!-- Main Dishes Section -->
                     <div class="category-section main-dishes">
