@@ -39,7 +39,7 @@ include_once "../includes/userData.php";
         <li class="dropdown">
           <a href="#"><img src="../Img/menu.png" alt="" class="img-round"></a>
           <ul class="dropdown-content">
-            <li><a href="">Cart</a></li>
+            <li><a href="user_cart.php">Cart</a></li>
             <li><a href="../includes/logout.php">Logout</a></li>
           </ul>
         </li>
