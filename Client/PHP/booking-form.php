@@ -3,6 +3,7 @@ session_start();
 include_once "../includes/loginSession.php";
 include_once "../includes/userData.php";
 include_once "../includes/allData.php";
+include_once "../includes/db.php";
 require_once "calendar-utils.php"; 
 
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
@@ -15,38 +16,201 @@ if (!isset($_SESSION['cart'])) {
     $_SESSION['cart'] = [];
 }
 
-// Add to cart functionality
-if (isset($_GET['add_to_cart']) && $_GET['add_to_cart'] == 'true') {
-    $packageData = [
-        'event_type' => $_POST['event_type'],
-        'date' => $_POST['date'],
-        'time' => $_POST['time'],
-        'duration' => $_POST['duration'],
-        'attendees' => $_POST['attendees'],
-        'address' => $_POST['address'],
-        'message' => $_POST['message'],
-        'package_details' => $_POST['package_details'],
-        'total_price' => $_POST['total_price']
-    ];
-    
-    $_SESSION['cart'][] = $packageData;
-    header("Location: user_cart.php");
-    exit();
+// Handle form submission to database
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_booking'])) {
+    try {
+        // Validate required fields
+        $required_fields = ['btaddress', 'btevent', 'event_date', 'event_time', 'event_duration', 'btattendees'];
+        foreach ($required_fields as $field) {
+            if (empty($_POST[$field])) {
+                throw new Exception("Please fill in all required fields. Missing: $field");
+            }
+        }
+
+        // Prepare data
+        $user_id = $_SESSION['user_id'];
+        $btaddress = trim($_POST['btaddress']);
+        $btevent = trim($_POST['btevent']);
+        
+        // Validate and adjust duration
+        $duration = (int)$_POST['event_duration'];
+        if (!in_array($duration, [4, 6, 8])) {
+            // Adjust to nearest valid duration
+            if ($duration < 5) $duration = 4;
+            else if ($duration < 7) $duration = 6;
+            else $duration = 8;
+        }
+        
+        $btschedule = date('Y-m-d H:i:s', strtotime($_POST['event_date'] . ' ' . $_POST['event_time']));
+        $EventDuration = date('Y-m-d H:i:s', strtotime('+' . $duration . ' hours', strtotime($btschedule)));
+        $btattendees = (int)$_POST['btattendees'];
+        $additional_headcount = max(0, (int)($_POST['additional_headcount'] ?? 0));
+        
+        // Handle services
+        $btservices = '';
+        $service_ids = [];
+        if (!empty($_POST['btservices']) && is_array($_POST['btservices'])) {
+            $service_names = [];
+            foreach ($_POST['btservices'] as $service_name) {
+                $service_stmt = $pdo->prepare("SELECT services_id, price FROM service WHERE name = ?");
+                $service_stmt->execute([$service_name]);
+                $service = $service_stmt->fetch();
+                if ($service) {
+                    $service_names[] = $service_name;
+                    $service_ids[] = $service['services_id'];
+                }
+            }
+            $btservices = implode(', ', $service_names);
+        }
+        
+        $btmessage = isset($_POST['btmessage']) ? trim($_POST['btmessage']) : '';
+        
+        // Calculate total cost based on package or custom event
+        $total_cost = 0;
+        
+        // Check if it's a predefined package
+        $package_stmt = $pdo->prepare("SELECT * FROM packages WHERE name = ? AND status = 'active'");
+        $package_stmt->execute([$btevent]);
+        $package = $package_stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($package) {
+            // Validate attendees count
+            if ($btattendees < $package['min_attendees']) {
+                throw new Exception("Minimum attendees for this package is " . $package['min_attendees']);
+            }
+            
+            if ($btattendees > $package['max_attendees']) {
+                throw new Exception("Maximum attendees for this package is " . $package['max_attendees']);
+            }
+            
+            // Calculate cost for package
+            $excessAttendees = max(0, $btattendees - $package['base_attendees']);
+            $total_cost = $package['base_price'] + ($excessAttendees * $package['excess_price']);
+        } else {
+            // Custom event - minimum 20,000 pesos
+            $total_cost = max(20000, $btattendees * 300); // Base calculation
+        }
+
+        // Add equipment costs
+        if (!empty($_POST['equipment'])) {
+            foreach ($_POST['equipment'] as $equipment_id => $value) {
+                if ($value == '1') {
+                    $equipment_stmt = $pdo->prepare("SELECT unit_price, item_name FROM inventory WHERE id = ?");
+                    $equipment_stmt->execute([$equipment_id]);
+                    $equipment = $equipment_stmt->fetch();
+                    if ($equipment) {
+                        $total_cost += $equipment['unit_price'];
+                    }
+                }
+            }
+        }
+
+        // Add service costs
+        if (!empty($_POST['btservices'])) {
+            foreach ($_POST['btservices'] as $service_name) {
+                $service_stmt = $pdo->prepare("SELECT price FROM service WHERE name = ?");
+                $service_stmt->execute([$service_name]);
+                $service = $service_stmt->fetch();
+                if ($service) {
+                    $total_cost += $service['price'];
+                }
+            }
+        }
+
+        // Insert into database
+        $stmt = $pdo->prepare("INSERT INTO bookings 
+            (btuser_id, btaddress, btevent, btschedule, EventDuration, total_cost, additional_headcount, btattendees, btservices, btmessage, status, payment_status) 
+            VALUES 
+            (:user_id, :btaddress, :btevent, :btschedule, :EventDuration, :total_cost, :additional_headcount, :btattendees, :btservices, :btmessage, 'Pending', 'unpaid')");
+
+        $stmt->execute([
+            ':user_id' => $user_id,
+            ':btaddress' => $btaddress,
+            ':btevent' => $btevent,
+            ':btschedule' => $btschedule,
+            ':EventDuration' => $EventDuration,
+            ':total_cost' => $total_cost,
+            ':additional_headcount' => $additional_headcount,
+            ':btattendees' => $btattendees,
+            ':btservices' => $btservices,
+            ':btmessage' => $btmessage
+        ]);
+
+        $booking_id = $pdo->lastInsertId();
+
+        // Handle equipment - USING INVENTORY TABLE DIRECTLY
+        if (!empty($_POST['equipment'])) {
+            foreach ($_POST['equipment'] as $equipment_id => $value) {
+                if ($value == '1') {
+                    $equipment_stmt = $pdo->prepare("SELECT item_name, unit_price, available_quantity FROM inventory WHERE id = ?");
+                    $equipment_stmt->execute([$equipment_id]);
+                    $equipment = $equipment_stmt->fetch();
+                    
+                    if ($equipment) {
+                        // Check if there's enough available quantity
+                        if ($equipment['available_quantity'] > 0) {
+                            // Update inventory - reduce available quantity and increase rented quantity
+                            // First check if rented_quantity column exists
+                            $check_column = $pdo->prepare("SHOW COLUMNS FROM inventory LIKE 'rented_quantity'");
+                            $check_column->execute();
+                            $column_exists = $check_column->fetch();
+                            
+                            if ($column_exists) {
+                                $update_inventory = $pdo->prepare("UPDATE inventory SET available_quantity = available_quantity - 1, rented_quantity = COALESCE(rented_quantity, 0) + 1 WHERE id = ?");
+                            } else {
+                                $update_inventory = $pdo->prepare("UPDATE inventory SET available_quantity = available_quantity - 1 WHERE id = ?");
+                            }
+                            $update_inventory->execute([$equipment_id]);
+                        } else {
+                            // Log the issue but don't stop the booking process
+                            error_log("Equipment '{$equipment['item_name']}' is unavailable for booking ID: $booking_id");
+                        }
+                    }
+                }
+            }
+        }
+
+        // Store the booking ID in session for catering to use
+        $_SESSION['current_booking_id'] = $booking_id;
+        
+        // Create a session cart item for payment system
+        $cartItem = [
+            'booking_id' => $booking_id,
+            'event_type' => $btevent,
+            'date' => $_POST['event_date'],
+            'time' => $_POST['event_time'],
+            'duration' => $duration,
+            'attendees' => $btattendees,
+            'address' => $btaddress,
+            'message' => $btmessage,
+            'total_price' => $total_cost,
+            'services' => $btservices,
+            'additional_headcount' => $additional_headcount
+        ];
+
+        // Add to session cart
+        $_SESSION['cart'][] = $cartItem;
+        
+        // Redirect based on user action
+        if (isset($_POST['proceed_to_catering']) && $_POST['proceed_to_catering'] == '1') {
+            // Redirect to catering page
+            $_SESSION['success_message'] = "Booking created successfully! Now add catering services.";
+            header("Location: catering.php");
+            exit();
+        } else {
+            // Redirect to cart page
+            $_SESSION['success_message'] = "Booking added to cart successfully!";
+            header("Location: user_cart.php");
+            exit();
+        }
+
+    } catch (Exception $e) {
+        $error_message = "Booking failed: " . $e->getMessage();
+    }
 }
 
-// Database Connection
-$host = 'localhost';
-$user = 'root';
-$password = '';
-$dbname = 'btonedatabase';
-$port = '3306';
-
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;port=$port", $user, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
-}
+// Fetch packages from database
+$packages = $pdo->query("SELECT * FROM packages WHERE status = 'active'")->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle AJAX request for calendar data
 if (isset($_GET['ajax']) && $_GET['ajax'] == 'calendar') {
@@ -75,20 +239,21 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 'calendar') {
     for ($day=1, $cell=$firstDay; $day<=$daysInMonth; $day++, $cell++) {
         $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $day);
         $color = isset($bookings[$dateStr]) ? getDayColor($bookings[$dateStr]) : 'green';
-        $data_color = $color;
-        if ($color == 'yellow') $data_color = 'yellow';
-        elseif ($color == 'red') $data_color = 'red';
-        else $data_color = 'green';
         
-        // Get available time slots and booked times for partially booked dates
-        $timeSlots = '';
-        $bookedTimes = '';
+        // Get booked times and available slots for tooltip
+        $bookedTimes = [];
+        $availableSlots = [];
         if (isset($bookings[$dateStr])) {
-            $timeSlots = getAvailableTimeSlots($bookings[$dateStr]);
-            $bookedTimes = getBookedTimes($bookings[$dateStr]);
+            $bookedTimes = getBookedTimesFormatted($bookings[$dateStr]);
+            $availableSlots = getAvailableTimeSlots($bookings[$dateStr]);
         }
         
-        $calendarHTML .= "<td class='calendar-day' data-color='$data_color' data-date='$dateStr' data-slots='$timeSlots' data-booked='$bookedTimes' onclick=\"handleDateClick('$dateStr', '$color')\">$day</td>";
+        $bookedTimesJson = htmlspecialchars(json_encode($bookedTimes));
+        $availableSlotsJson = htmlspecialchars(json_encode($availableSlots));
+        
+        $calendarHTML .= "<td class='calendar-day' data-color='$color' data-date='$dateStr' 
+                          data-booked='$bookedTimesJson' data-available='$availableSlotsJson' 
+                          onclick=\"handleDateClick('$dateStr', '$color')\">$day</td>";
         
         if ($cell%7==0) {
             $calendarHTML .= "</tr><tr>";
@@ -106,172 +271,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == 'calendar') {
     exit;
 }
 
-// Function to get available time slots
-function getAvailableTimeSlots($bookings) {
-    $allHours = range(8, 22); // 8 AM to 10 PM
-    $bookedHours = [];
-    
-    foreach ($bookings as $booking) {
-        $startHour = (int)date('H', strtotime($booking['btschedule']));
-        $duration = (int)$booking['EventDuration'];
-        $endHour = $startHour + $duration;
-        
-        for ($hour = $startHour; $hour < $endHour; $hour++) {
-            if ($hour < 24) {
-                $bookedHours[$hour] = true;
-            }
-        }
-    }
-    
-    $availableHours = array_diff($allHours, array_keys($bookedHours));
-    
-    if (empty($availableHours)) {
-        return 'No available hours';
-    }
-    
-    $slots = [];
-    $currentSlot = [];
-    
-    sort($availableHours);
-    foreach ($availableHours as $hour) {
-        if (empty($currentSlot)) {
-            $currentSlot[] = $hour;
-        } elseif ($hour == end($currentSlot) + 1) {
-            $currentSlot[] = $hour;
-        } else {
-            $slots[] = $currentSlot;
-            $currentSlot = [$hour];
-        }
-    }
-    $slots[] = $currentSlot;
-    
-    $formattedSlots = [];
-    foreach ($slots as $slot) {
-        $start = sprintf('%02d:00', $slot[0]);
-        $end = sprintf('%02d:00', end($slot) + 1);
-        $formattedSlots[] = date('g:i A', strtotime($start)) . ' - ' . date('g:i A', strtotime($end));
-    }
-    
-    return implode(', ', $formattedSlots);
-}
-
-// Function to get booked times
-function getBookedTimes($bookings) {
-    $bookedSlots = [];
-    
-    foreach ($bookings as $booking) {
-        $start = date('g:i A', strtotime($booking['btschedule']));
-        $end = date('g:i A', strtotime($booking['btschedule']) + ($booking['EventDuration'] * 3600));
-        $bookedSlots[] = $start . ' - ' . $end;
-    }
-    
-    return implode(', ', $bookedSlots);
-}
-
-// Event packages data
-$eventPackages = [
-    'Weddings' => [
-        'base_price' => 50000,
-        'base_attendees' => 50,
-        'excess_price' => 900,
-        'duration' => 8,
-        'includes' => [
-            'Venue rental for 8 hours',
-            'Event Coordination & Setup',
-            'Lights (2x)',
-            'Speakers (4x)',
-            'Tables & Chairs with linens',
-            'Backdrop & stage decor',
-            'Basic catering for 50 pax'
-        ]
-    ],
-    'Birthday Party' => [
-        'base_price' => 25000,
-        'base_attendees' => 30,
-        'excess_price' => 500,
-        'duration' => 6,
-        'includes' => [
-            'Venue rental for 6 hours',
-            'Themed backdrop & balloons',
-            'Lights (2x)',
-            'Speakers (2x)',
-            'Tables & chairs with covers',
-            'Basic catering for 30 pax'
-        ]
-    ],
-    'Corporate Event' => [
-        'base_price' => 40000,
-        'base_attendees' => 100,
-        'excess_price' => 700,
-        'duration' => 6,
-        'includes' => [
-            'Venue rental for 6 hours',
-            'Professional stage & backdrop',
-            'Projector & screen',
-            'Lights (4x)',
-            'Speakers (4x)',
-            'Tables & chairs',
-            'Basic catering for 100 pax'
-        ]
-    ],
-    'Christening' => [
-        'base_price' => 20000,
-        'base_attendees' => 30,
-        'excess_price' => 400,
-        'duration' => 6,
-        'includes' => [
-            'Venue rental for 6 hours',
-            'Simple backdrop & floral decor',
-            'Lights (2x)',
-            'Speakers (2x)',
-            'Tables & chairs with linens',
-            'Basic catering for 30 pax'
-        ]
-    ],
-    'Debut' => [
-        'base_price' => 35000,
-        'base_attendees' => 50,
-        'excess_price' => 800,
-        'duration' => 6,
-        'includes' => [
-            'Venue rental for 6 hours',
-            'Themed stage & backdrop',
-            'Lights (3x)',
-            'Speakers (3x)',
-            'Tables & chairs with covers',
-            'Basic catering for 50 pax'
-        ]
-    ],
-    '18 Birthday' => [
-        'base_price' => 28000,
-        'base_attendees' => 40,
-        'excess_price' => 600,
-        'duration' => 6,
-        'includes' => [
-            'Venue rental for 6 hours',
-            'Special themed decor',
-            'Lights (3x)',
-            'Speakers (3x)',
-            'Tables & chairs with covers',
-            'Basic catering for 40 pax'
-        ]
-    ],
-    'Graduation' => [
-        'base_price' => 22000,
-        'base_attendees' => 40,
-        'excess_price' => 450,
-        'duration' => 5,
-        'includes' => [
-            'Venue rental for 5 hours',
-            'Graduation-themed decor',
-            'Lights (2x)',
-            'Speakers (2x)',
-            'Tables & chairs',
-            'Basic catering for 40 pax'
-        ]
-    ]
-];
-
 // Current values
 $year = isset($_GET['year']) ? intval($_GET['year']) : date('Y');
 $month = isset($_GET['month']) ? intval($_GET['month']) : date('m');
@@ -284,13 +283,13 @@ $data = new AllData($pdo);
 $getUserById = $data->getUserById($user_id);
 $services = $data->getAllServices();
 
-// Fetch available equipment
+// Fetch available equipment from inventory table
 function getAvailableEquipment($pdo)
 {
     $sql = "SELECT id, item_name, category, available_quantity, unit_price 
             FROM inventory 
             WHERE available_quantity > 0 
-            AND category IN ('Sound Equipment', 'Visual Equipment', 'Lighting Equipment', 'Effects Equipment', 'Furniture')
+            AND category IS NOT NULL
             ORDER BY category, item_name";
     $stmt = $pdo->query($sql);
     $equipment = [];
@@ -303,6 +302,15 @@ function getAvailableEquipment($pdo)
 }
 
 $available_equipment = getAvailableEquipment($pdo);
+
+// Count unpaid bookings for cart badge
+try {
+    $count_stmt = $pdo->prepare("SELECT COUNT(*) as cart_count FROM bookings WHERE btuser_id = ? AND status = 'Pending' AND payment_status = 'unpaid'");
+    $count_stmt->execute([$_SESSION['user_id']]);
+    $cart_count = $count_stmt->fetch(PDO::FETCH_ASSOC)['cart_count'];
+} catch (Exception $e) {
+    $cart_count = 0;
+}
 ?>
 
 <!DOCTYPE html>
@@ -312,7 +320,7 @@ $available_equipment = getAvailableEquipment($pdo);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../CSS/style.css" />
-    <title>Booking Form</title>
+    <title>Booking Form - BTONE Events</title>
     <style>
         body {
             background: #f5f1e8;
@@ -511,41 +519,29 @@ $available_equipment = getAvailableEquipment($pdo);
         .legend .partial { background: #ffe066; color: #5e5e00; }
         .legend .full { background: #f36c6c; color: #fff; }
         
-        /* Time Slot Tooltip */
-        .time-slot-tooltip {
-            position: absolute;
-            background: #fff;
-            border: 2px solid #8d6e63;
-            border-radius: 8px;
-            padding: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
             z-index: 1000;
-            max-width: 250px;
-            font-size: 12px;
-            color: #5d4037;
+            justify-content: center;
+            align-items: center;
         }
         
-        .time-slot-tooltip h4 {
-            margin: 0 0 8px 0;
-            color: #6d4c41;
-            font-size: 14px;
-            border-bottom: 1px solid #d7ccc8;
-            padding-bottom: 4px;
-        }
-        
-        .time-slot-tooltip ul {
-            margin: 0;
-            padding: 0;
-            list-style: none;
-        }
-        
-        .time-slot-tooltip li {
-            padding: 4px 0;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        
-        .time-slot-tooltip li:last-child {
-            border-bottom: none;
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.3);
         }
         
         .time-range {
@@ -737,24 +733,6 @@ $available_equipment = getAvailableEquipment($pdo);
             border-top: 2px solid #8d6e63;
         }
         
-        .add-to-cart-btn {
-            background: linear-gradient(135deg, #388e3c, #2e7d32);
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-top: 15px;
-        }
-        
-        .add-to-cart-btn:hover {
-            background: linear-gradient(135deg, #2e7d32, #1b5e20);
-            transform: translateY(-2px);
-        }
-        
         .view-cart-btn {
             background: #8d6e63;
             color: white;
@@ -775,6 +753,60 @@ $available_equipment = getAvailableEquipment($pdo);
             margin-left: 5px;
         }
         
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .btn-add-cart {
+            background: linear-gradient(135deg, #388e3c, #2e7d32);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-add-cart:hover {
+            background: linear-gradient(135deg, #2e7d32, #1b5e20);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(56,142,60,0.4);
+        }
+        
+        .btn-payment {
+            background: linear-gradient(135deg, #f57c00, #e65100);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-payment:hover {
+            background: linear-gradient(135deg, #e65100, #bf360c);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(245,124,0,0.4);
+        }
+        
+        .btn-icon {
+            font-size: 1.2rem;
+        }
+        
         @media (max-width: 768px) {
             .form-grid {
                 grid-template-columns: 1fr;
@@ -789,10 +821,108 @@ $available_equipment = getAvailableEquipment($pdo);
                 flex-direction: column;
                 gap: 10px;
             }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn-add-cart, .btn-payment {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
         }
     </style>
     <script>
-        const eventPackages = <?php echo json_encode($eventPackages); ?>;
+        const eventPackages = <?php echo json_encode($packages); ?>;
+        
+        // Helper function to format currency with commas and 2 decimal places
+        function formatCurrency(amount) {
+            return parseFloat(amount).toLocaleString('en-PH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+        
+        // Modal functions
+        function showModal(title, content) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('timeSlotModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('timeSlotModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('timeSlotModal').addEventListener('click', function(e) {
+                if (e.target === this) closeModal();
+            });
+        });
+
+        // Updated handleDateClick function
+        function handleDateClick(dateStr, color) {
+            const dayElement = document.querySelector(`[data-date="${dateStr}"]`);
+            const bookedTimes = JSON.parse(dayElement.getAttribute('data-booked') || '[]');
+            const availableSlots = JSON.parse(dayElement.getAttribute('data-available') || '[]');
+            
+            if (color === 'red') {
+                showModal('Date Fully Booked - ' + formatDate(dateStr), 
+                    '<p style="color: #f36c6c; font-weight: bold;">This date is fully booked. Please choose another date.</p>');
+                return;
+            }
+            
+            if (color === 'yellow') {
+                let content = '<div style="text-align: left;">';
+                content += '<h4 style="color: #8d6e63; margin-bottom: 15px;">Current Bookings:</h4>';
+                
+                if (bookedTimes.length > 0) {
+                    content += '<ul style="list-style: none; padding: 0; margin: 0 0 20px 0;">';
+                    bookedTimes.forEach(time => {
+                        content += `<li style="padding: 5px 0; border-bottom: 1px solid #eee;">⏰ ${time}</li>`;
+                    });
+                    content += '</ul>';
+                } else {
+                    content += '<p style="color: #7d6e63;">No specific time slots booked yet.</p>';
+                }
+                
+                content += '<h4 style="color: #8d6e63; margin-bottom: 15px;">Available Time Slots:</h4>';
+                
+                if (availableSlots.length > 0) {
+                    content += '<ul style="list-style: none; padding: 0; margin: 0;">';
+                    availableSlots.forEach(slot => {
+                        content += `<li style="padding: 8px 0; border-bottom: 1px solid #eee;">
+                            <span style="color: #4caf50; font-weight: bold;">✓</span> 
+                            ${slot.start} - ${slot.end}
+                        </li>`;
+                    });
+                    content += '</ul>';
+                } else {
+                    content += '<p style="color: #f36c6c;">No available time slots remaining.</p>';
+                }
+                
+                content += '</div>';
+                
+                showModal('Date Partially Booked - ' + formatDate(dateStr), content);
+                return;
+            }
+            
+            // For green dates, just select the date
+            updateCalendarDay(dateStr);
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
         
         function updateForm() {
             const eventType = document.getElementById('btevent').value;
@@ -802,27 +932,36 @@ $available_equipment = getAvailableEquipment($pdo);
             bundleDiv.style.display = eventType === 'Weddings' ? 'block' : 'none';
             
             // Show package details if it's a predefined package
-            if (eventPackages[eventType]) {
-                showPackageDetails(eventType);
+            const selectedPackage = eventPackages.find(pkg => pkg.name === eventType);
+            if (selectedPackage) {
+                showPackageDetails(selectedPackage);
                 // Set duration based on package
-                document.getElementById('event_duration').value = eventPackages[eventType].duration;
+                document.getElementById('event_duration').value = selectedPackage.duration;
                 updateTimeRange();
+                
+                // Set minimum and maximum attendees
+                document.getElementById('btattendees').min = selectedPackage.min_attendees;
+                document.getElementById('btattendees').max = selectedPackage.max_attendees;
+                document.getElementById('btattendees').value = selectedPackage.base_attendees;
             } else {
                 packageDetails.style.display = 'none';
+                // Reset attendees for custom events
+                document.getElementById('btattendees').min = 1;
+                document.getElementById('btattendees').max = 500;
+                document.getElementById('btattendees').value = 50;
             }
             
             updateTotalCost();
         }
         
-        function showPackageDetails(eventType) {
-            const package = eventPackages[eventType];
+        function showPackageDetails(package) {
             const packageDetails = document.getElementById('packageDetails');
             const packageContent = document.getElementById('packageContent');
             
             // Build includes list
             let includesHTML = '<ul>';
-            package.includes.forEach(item => {
-                includesHTML += `<li>${item}</li>`;
+            package.includes.split(',').forEach(item => {
+                includesHTML += `<li>${item.trim()}</li>`;
             });
             includesHTML += '</ul>';
             
@@ -836,59 +975,91 @@ $available_equipment = getAvailableEquipment($pdo);
             `;
             
             // Update price calculation
-            updatePriceCalculation(eventType);
+            updatePriceCalculation(package);
             
             // Show package details
             packageDetails.style.display = 'block';
         }
         
-        function updatePriceCalculation(eventType) {
-            const package = eventPackages[eventType];
+        function updatePriceCalculation(package) {
             const attendees = parseInt(document.getElementById('btattendees').value) || package.base_attendees;
             const priceCalculation = document.getElementById('priceCalculation');
             
             const excessAttendees = Math.max(0, attendees - package.base_attendees);
-            const excessCost = excessAttendees * package.excess_price;
-            const totalCost = package.base_price + excessCost;
+            const excessCost = parseFloat(excessAttendees) * parseFloat(package.excess_price);
+            const totalCost = parseFloat(package.base_price) + excessCost;
             
             priceCalculation.innerHTML = `
                 <div class="price-breakdown">
-                    <p>Base price (${package.base_attendees} pax): ₱${package.base_price.toLocaleString()}</p>
+                    <p>Base price (${package.base_attendees} pax): ₱${formatCurrency(package.base_price)}</p>
                     ${excessAttendees > 0 ? `
-                        <p>Excess attendees (${excessAttendees} pax × ₱${package.excess_price}): ₱${excessCost.toLocaleString()}</p>
+                        <p>Excess attendees (${excessAttendees} pax × ₱${formatCurrency(package.excess_price)}): ₱${formatCurrency(excessCost)}</p>
                     ` : ''}
                 </div>
                 <div class="total-price">
-                    Total: ₱${totalCost.toLocaleString()}
+                    Total: ₱${formatCurrency(totalCost)}
                     ${excessAttendees > 0 ? `(${package.base_attendees} + ${excessAttendees} pax)` : ''}
                 </div>
             `;
             
             // Update total cost display
-            document.getElementById('totalCost').textContent = totalCost.toLocaleString();
+            document.getElementById('totalCost').textContent = formatCurrency(totalCost);
         }
         
         function updateTotalCost() {
             const eventType = document.getElementById('btevent').value;
             const attendees = parseInt(document.getElementById('btattendees').value) || 0;
-            
-            if (eventPackages[eventType]) {
-                updatePriceCalculation(eventType);
-            } else {
-                // Custom event calculation
-                const baseCost = eventType === 'Weddings' ? 1000 : 300;
-                const additionalHeads = Math.max(0, attendees - 50);
-                const totalCost = baseCost + (additionalHeads * 50);
-                document.getElementById('totalCost').textContent = totalCost.toLocaleString();
-            }
-        }
-        
-        function handleDateClick(dateStr, color) {
-            if (color === 'red') {
-                alert('This date is fully booked. Please choose another date.');
+            let totalCost = 0;
+
+            // If no event type is selected, show 0
+            if (!eventType) {
+                document.getElementById('totalCost').textContent = "0.00";
                 return;
             }
-            updateCalendarDay(dateStr);
+
+            const selectedPackage = eventPackages.find(pkg => pkg.name === eventType);
+            if (selectedPackage) {
+                // Package calculation - convert to numbers to ensure proper addition
+                const excessAttendees = Math.max(0, attendees - selectedPackage.base_attendees);
+                totalCost = parseFloat(selectedPackage.base_price) + (parseFloat(excessAttendees) * parseFloat(selectedPackage.excess_price));
+                
+                // Update package details display
+                updatePriceCalculation(selectedPackage);
+            } else if (eventType === 'Custom') {
+                // Custom event calculation - minimum 20,000 pesos
+                totalCost = Math.max(20000, parseFloat(attendees) * 300);
+            }
+
+            // Add equipment costs - ensure we're adding numbers, not concatenating strings
+            document.querySelectorAll('input[name^="equipment"]:checked').forEach(checkbox => {
+                const priceElement = checkbox.parentElement.querySelector('label');
+                const priceText = priceElement.textContent.match(/₱([\d,]+\.?\d*)/);
+                if (priceText) {
+                    const price = parseFloat(priceText[1].replace(/,/g, ''));
+                    totalCost += price;
+                }
+            });
+
+            // Add service costs - ensure we're adding numbers, not concatenating strings
+            document.querySelectorAll('input[name="btservices[]"]:checked').forEach(checkbox => {
+                const priceElement = checkbox.parentElement.querySelector('label');
+                const priceText = priceElement.textContent.match(/₱([\d,]+\.?\d*)/);
+                if (priceText) {
+                    const price = parseFloat(priceText[1].replace(/,/g, ''));
+                    totalCost += price;
+                }
+            });
+
+            // Format the total cost with proper thousands separators and 2 decimal places
+            document.getElementById('totalCost').textContent = formatCurrency(totalCost);
+        }
+        
+        function handleEquipmentChange() {
+            updateTotalCost();
+        }
+        
+        function handleServiceChange() {
+            updateTotalCost();
         }
         
         function updateCalendarDay(dateStr) {
@@ -934,81 +1105,37 @@ $available_equipment = getAvailableEquipment($pdo);
             const duration = document.getElementById('event_duration').value;
             const attendees = document.getElementById('btattendees').value;
             const address = document.getElementById('btaddress').value;
-            const message = document.getElementById('btmessage').value;
             
             if (!eventType || !date || !time || !duration || !attendees || !address) {
                 alert('Please fill in all required fields before adding to cart.');
                 return;
             }
             
-            // Create form and submit
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '?add_to_cart=true';
+            // Clear catering flag
+            document.getElementById('proceed_to_catering').value = '0';
             
-            const fields = {
-                'event_type': eventType,
-                'date': date,
-                'time': time,
-                'duration': duration,
-                'attendees': attendees,
-                'address': address,
-                'message': message,
-                'package_details': JSON.stringify(eventPackages[eventType] || {}),
-                'total_price': document.getElementById('totalCost').textContent.replace(/,/g, '')
-            };
-            
-            Object.entries(fields).forEach(([key, value]) => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = key;
-                input.value = value;
-                form.appendChild(input);
-            });
-            
-            document.body.appendChild(form);
-            form.submit();
+            // Submit the form to save to database
+            document.getElementById('bookingForm').submit();
         }
         
-        function showTimeSlots(event) {
-            const day = event.target;
-            const color = day.getAttribute('data-color');
-            const timeSlots = day.getAttribute('data-slots');
-            const bookedTimes = day.getAttribute('data-booked');
+        function proceedToCatering() {
+            const eventType = document.getElementById('btevent').value;
+            const date = document.getElementById('event_date').value;
+            const time = document.getElementById('event_time').value;
+            const duration = document.getElementById('event_duration').value;
+            const attendees = document.getElementById('btattendees').value;
+            const address = document.getElementById('btaddress').value;
             
-            if (color === 'yellow') {
-                const tooltip = document.createElement('div');
-                tooltip.className = 'time-slot-tooltip';
-                
-                let tooltipHTML = '<h4>Availability Information</h4><ul>';
-                
-                if (bookedTimes) {
-                    tooltipHTML += '<li><strong>Booked Times:</strong><br>' + bookedTimes.split(', ').join('<br>') + '</li>';
-                }
-                
-                if (timeSlots && timeSlots !== 'No available hours') {
-                    tooltipHTML += '<li><strong>Available Slots:</strong><br>' + timeSlots.split(', ').join('<br>') + '</li>';
-                }
-                
-                tooltipHTML += '</ul>';
-                tooltip.innerHTML = tooltipHTML;
-                
-                const rect = day.getBoundingClientRect();
-                tooltip.style.position = 'fixed';
-                tooltip.style.left = (rect.left + window.scrollX) + 'px';
-                tooltip.style.top = (rect.bottom + window.scrollY + 5) + 'px';
-                
-                document.body.appendChild(tooltip);
-                day._tooltip = tooltip;
+            if (!eventType || !date || !time || !duration || !attendees || !address) {
+                alert('Please fill in all required fields before proceeding to catering menu.');
+                return;
             }
-        }
-        
-        function hideTimeSlots(event) {
-            const day = event.target;
-            if (day._tooltip) {
-                document.body.removeChild(day._tooltip);
-                day._tooltip = null;
-            }
+            
+            // Set catering flag
+            document.getElementById('proceed_to_catering').value = '1';
+            
+            // Submit the form to save to database
+            document.getElementById('bookingForm').submit();
         }
         
         function loadCalendar(year, month) {
@@ -1026,11 +1153,29 @@ $available_equipment = getAvailableEquipment($pdo);
             xhr.send();
         }
         
+        function attachCheckboxListeners() {
+            // Add event listeners to equipment checkboxes
+            document.querySelectorAll('input[name^="equipment"]').forEach(checkbox => {
+                checkbox.addEventListener('change', handleEquipmentChange);
+            });
+            
+            // Add event listeners to service checkboxes  
+            document.querySelectorAll('input[name="btservices[]"]').forEach(checkbox => {
+                checkbox.addEventListener('change', handleServiceChange);
+            });
+        }
+        
         function attachCalendarEventListeners() {
             document.querySelectorAll('.calendar-day').forEach(day => {
-                day.addEventListener('mouseenter', showTimeSlots);
-                day.addEventListener('mouseleave', hideTimeSlots);
+                day.addEventListener('click', function() {
+                    const dateStr = this.getAttribute('data-date');
+                    const color = this.getAttribute('data-color');
+                    handleDateClick(dateStr, color);
+                });
             });
+            
+            // Add checkbox listeners
+            attachCheckboxListeners();
         }
         
         function restoreFormData() {
@@ -1066,7 +1211,7 @@ $available_equipment = getAvailableEquipment($pdo);
 <body onload="restoreFormData(); attachCalendarEventListeners();">
     <a href="index.php" class="back-btn">&#8592; Back to Home</a>
     <a href="user_cart.php" class="view-cart-btn">
-        View Cart <span class="cart-count"><?php echo count($_SESSION['cart']); ?></span>
+        View Cart <span class="cart-count"><?php echo $cart_count; ?></span>
     </a>
 
     <div class="booking-main">
@@ -1075,8 +1220,18 @@ $available_equipment = getAvailableEquipment($pdo);
             <p style="color:#8d6e63;">Browse months freely - your form data will be preserved</p>
         </div>
         
-        <form id="bookingForm" method="POST">
+        <?php if (isset($error_message)): ?>
+            <div class="error"><?php echo htmlspecialchars($error_message); ?></div>
+        <?php endif; ?>
+        
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div class="success"><?php echo htmlspecialchars($_SESSION['success_message']); ?></div>
+            <?php unset($_SESSION['success_message']); ?>
+        <?php endif; ?>
+        
+        <form id="bookingForm" method="POST" action="booking-form.php">
             <input type="hidden" name="submit_booking" value="1">
+            <input type="hidden" name="proceed_to_catering" id="proceed_to_catering" value="0">
             
             <div class="form-grid">
                 <!-- User Information -->
@@ -1097,20 +1252,20 @@ $available_equipment = getAvailableEquipment($pdo);
                 
                 <div class="form-group">
                     <label for="address">Address *</label>
-                    <input type="text" name="btaddress" id="btaddress" class="form-control">
+                    <input type="text" name="btaddress" id="btaddress" class="form-control" required>
                 </div>
                 
                 <!-- Event Details -->
                 <div class="form-group">
                     <label for="event">Event Type *</label>
                     <div class="select-wrapper">
-                        <select name="btevent" class="form-control" id="btevent" onchange="updateForm()">
+                        <select name="btevent" class="form-control" id="btevent" onchange="updateForm()" required>
                             <option value="">Select Event Type</option>
-                            <?php
-                            foreach ($eventPackages as $event => $package) {
-                                echo '<option value="' . htmlspecialchars($event) . '">' . htmlspecialchars($event) . '</option>';
-                            }
-                            ?>
+                            <?php foreach ($packages as $package): ?>
+                                <option value="<?php echo htmlspecialchars($package['name']); ?>">
+                                    <?php echo htmlspecialchars($package['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
                             <option value="Custom">Custom Event</option>
                         </select>
                     </div>
@@ -1119,18 +1274,18 @@ $available_equipment = getAvailableEquipment($pdo);
                 <div class="form-group">
                     <label for="event_date">Event Date *</label>
                     <input type="date" name="event_date" id="event_date" class="form-control" 
-                           min="<?php echo date('Y-m-d'); ?>" onchange="updateTimeRange()">
+                           min="<?php echo date('Y-m-d'); ?>" onchange="updateTimeRange()" required>
                 </div>
                 
                 <div class="form-group">
                     <label for="event_time">Start Time *</label>
-                    <input type="time" name="event_time" id="event_time" class="form-control" onchange="updateTimeRange()">
+                    <input type="time" name="event_time" id="event_time" class="form-control" onchange="updateTimeRange()" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="event_duration">Duration *</label>
+                    <label for="event_duration">Duration (hours) *</label>
                     <div class="select-wrapper">
-                        <select name="event_duration" id="event_duration" class="form-control" onchange="updateTimeRange()">
+                        <select name="event_duration" id="event_duration" class="form-control" onchange="updateTimeRange()" required>
                             <option value="">Select Duration</option>
                             <option value="4">4 hours</option>
                             <option value="6">6 hours</option>
@@ -1144,7 +1299,7 @@ $available_equipment = getAvailableEquipment($pdo);
                 
                 <div class="form-group">
                     <label for="btattendees">Number of Attendees *</label>
-                    <input type="number" name="btattendees" id="btattendees" min="1" class="form-control" onchange="updateTotalCost()">
+                    <input type="number" name="btattendees" id="btattendees" min="1" class="form-control" onchange="updateTotalCost()" required>
                 </div>
             </div>
 
@@ -1174,9 +1329,21 @@ $available_equipment = getAvailableEquipment($pdo);
                         for ($day=1, $cell=$firstDay; $day<=$daysInMonth; $day++, $cell++) {
                             $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $day);
                             $color = isset($bookings[$dateStr]) ? getDayColor($bookings[$dateStr]) : 'green';
-                            $timeSlots = ($color == 'yellow' && isset($bookings[$dateStr])) ? getAvailableTimeSlots($bookings[$dateStr]) : '';
-                            $bookedTimes = ($color == 'yellow' && isset($bookings[$dateStr])) ? getBookedTimes($bookings[$dateStr]) : '';
-                            echo "<td class='calendar-day' data-color='$color' data-date='$dateStr' data-slots='$timeSlots' data-booked='$bookedTimes' onclick=\"handleDateClick('$dateStr', '$color')\">$day</td>";
+                            
+                            // Get booked times and available slots for tooltip
+                            $bookedTimes = [];
+                            $availableSlots = [];
+                            if (isset($bookings[$dateStr])) {
+                                $bookedTimes = getBookedTimesFormatted($bookings[$dateStr]);
+                                $availableSlots = getAvailableTimeSlots($bookings[$dateStr]);
+                            }
+                            
+                            $bookedTimesJson = htmlspecialchars(json_encode($bookedTimes));
+                            $availableSlotsJson = htmlspecialchars(json_encode($availableSlots));
+                            
+                            echo "<td class='calendar-day' data-color='$color' data-date='$dateStr' 
+                                  data-booked='$bookedTimesJson' data-available='$availableSlotsJson' 
+                                  onclick=\"handleDateClick('$dateStr', '$color')\">$day</td>";
                             if ($cell%7==0) echo "</tr><tr>";
                         }
                         ?>
@@ -1187,6 +1354,15 @@ $available_equipment = getAvailableEquipment($pdo);
                     <span class="available">Available</span>
                     <span class="partial">Partially Booked</span>
                     <span class="full">Fully Booked</span>
+                </div>
+            </div>
+
+            <!-- Time Slot Modal -->
+            <div id="timeSlotModal" class="modal">
+                <div class="modal-content">
+                    <h3 id="modalTitle">Date Availability</h3>
+                    <div id="modalContent"></div>
+                    <button onclick="closeModal()" style="margin-top: 20px; padding: 10px 20px; background: #8d6e63; color: white; border: none; border-radius: 6px; cursor: pointer;">Close</button>
                 </div>
             </div>
 
@@ -1213,16 +1389,22 @@ $available_equipment = getAvailableEquipment($pdo);
                                 <?php foreach ($items as $item): ?>
                                     <div class="checkbox-item">
                                         <input type="checkbox" id="equipment-<?php echo $item['id']; ?>"
-                                            name="equipment[<?php echo $item['id']; ?>]" value="1">
+                                            name="equipment[<?php echo $item['id']; ?>]" value="1"
+                                            onchange="handleEquipmentChange()">
                                         <label for="equipment-<?php echo $item['id']; ?>">
                                             <?php echo htmlspecialchars($item['item_name']); ?>
-                                            (₱<?php echo number_format($item['unit_price'], 2); ?>)
+                                            - ₱<?php echo number_format($item['unit_price'], 2); ?>
                                         </label>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
                         <?php endforeach; ?>
                     </div>
+                </div>
+            <?php else: ?>
+                <div class="form-group">
+                    <h3>Equipment (Optional)</h3>
+                    <p style="color: #8d6e63; font-style: italic;">No equipment currently available for booking.</p>
                 </div>
             <?php endif; ?>
 
@@ -1233,7 +1415,8 @@ $available_equipment = getAvailableEquipment($pdo);
                     <?php foreach ($services as $service): ?>
                         <div class="checkbox-item">
                             <input type="checkbox" id="service-<?php echo $service['services_id']; ?>"
-                                name="btservices[]" value="<?php echo htmlspecialchars($service['name']); ?>">
+                                name="btservices[]" value="<?php echo htmlspecialchars($service['name']); ?>"
+                                onchange="handleServiceChange()">
                             <label for="service-<?php echo $service['services_id']; ?>">
                                 <?php echo htmlspecialchars($service['name']); ?> - ₱<?php echo number_format($service['price'], 2); ?>
                             </label>
@@ -1253,10 +1436,15 @@ $available_equipment = getAvailableEquipment($pdo);
                 Total Cost: ₱<span id="totalCost">0.00</span>
             </div>
 
-            <!-- Add to Cart Button -->
-            <div style="text-align: center; margin: 30px 0;">
-                <button type="button" class="add-to-cart-btn" onclick="addToCart()">
-                    📦 Add to Cart
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button type="button" class="btn-add-cart" onclick="addToCart()">
+                    <span class="btn-icon">📦</span>
+                    Add to Cart
+                </button>
+                <button type="button" class="btn-payment" onclick="proceedToCatering()">
+                    <span class="btn-icon">🍽️</span>
+                    Proceed to Catering Menu
                 </button>
             </div>
         </form>

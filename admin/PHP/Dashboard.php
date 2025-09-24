@@ -25,20 +25,20 @@ try {
     die("Database Connection Failed: " . $e->getMessage());
 }
 
-// Fetch Customer Inquiries
+// Fetch Customer Inquiries with Payment Data
 function getBookings($pdo) {
     $stmt = $pdo->prepare("
-        SELECT b.*, u.bt_first_name, u.bt_last_name, u.bt_email
+        SELECT b.*, u.bt_first_name, u.bt_last_name, u.bt_email,
+               s.GcashReferenceNo, s.AmountPaid, s.TotalAmount, s.DateCreated as payment_date
         FROM bookings b
         JOIN btuser u ON b.btuser_id = u.bt_user_id
+        LEFT JOIN sales s ON b.id = s.booking_id
         ORDER BY b.btschedule DESC
         LIMIT 50
     ");
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
-   $bookingData = getBookings($pdo);
-
 
 // Fetch Booking Analytics
 function getBookingAnalytics($pdo)
@@ -53,13 +53,6 @@ function getBookingAnalytics($pdo)
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Fetch Data
-$bookingData = getBookings($pdo);
-$bookingAnalytics = getBookingAnalytics($pdo);
-$monthlyBookings = getMonthlyBookings($pdo);
-$archivedData =  getArchivedBookings($pdo);
-
-
 // Add this function with your other functions
 function getMonthlyBookings($pdo)
 {
@@ -73,9 +66,6 @@ function getMonthlyBookings($pdo)
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
-// Add this line where you fetch your other data
-
-$monthlyBookings = getMonthlyBookings($pdo);
 
 // Add this with your other functions
 function getMonthDetails($pdo, $month, $year)
@@ -83,37 +73,42 @@ function getMonthDetails($pdo, $month, $year)
     $stmt = $pdo->prepare("
         SELECT
         COUNT(*) AS total_bookings,
-        SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as confirmed_bookings,
-        SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending_bookings,
+        SUM(CASE WHEN b.status = 'Approved' THEN 1 ELSE 0 END) as confirmed_bookings,
+        SUM(CASE WHEN b.status = 'Pending' THEN 1 ELSE 0 END) as pending_bookings,
         GROUP_CONCAT(DISTINCT btevent) as popular_packages
-        FROM bookings
-        WHERE MONTH(btschedule) = ? AND YEAR(btschedule) = ?
+        FROM bookings b
+        WHERE MONTH(b.btschedule) = ? AND YEAR(b.btschedule) = ?
     ");
     $stmt->execute([$month, $year]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-// Get current month's data
-$currentMonth = date('n');
-$currentYear = date('Y');
-$currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
-
-// Add this after your other functions
+// Add this after your other functions - FIXED THE AMBIGUOUS COLUMN ERROR
 function getArchivedBookings($pdo)
 {
     $stmt = $pdo->prepare("
-        SELECT b.*, u.bt_first_name, u.bt_last_name, u.bt_email
+        SELECT b.*, u.bt_first_name, u.bt_last_name, u.bt_email,
+               s.GcashReferenceNo, s.AmountPaid, s.TotalAmount
         FROM bookings b
         JOIN btuser u ON b.btuser_id = u.bt_user_id
-        WHERE status IN ('Canceled', 'Completed')
+        LEFT JOIN sales s ON b.id = s.booking_id
+        WHERE b.status IN ('Canceled', 'Completed')
         ORDER BY b.btschedule DESC
     ");
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Add this with your other data fetching
+// Fetch Data
+$bookingData = getBookings($pdo);
+$bookingAnalytics = getBookingAnalytics($pdo);
+$monthlyBookings = getMonthlyBookings($pdo);
 $archivedData = getArchivedBookings($pdo);
+
+// Get current month's data
+$currentMonth = date('n');
+$currentYear = date('Y');
+$currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -126,9 +121,35 @@ $archivedData = getArchivedBookings($pdo);
     <link rel="stylesheet" href="../assets_css/admin.css">
     <style>
         body {
-            font-family:
-                <?php echo htmlspecialchars($userColors['font_family']); ?>
-                , sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        
+        .gcash-reference {
+            font-family: monospace;
+            background: #f0f0f0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .payment-status {
+            font-size: 11px;
+            display: block;
+            margin-top: 2px;
+        }
+        
+        .paid-full {
+            color: #4caf50;
+        }
+        
+        .paid-partial {
+            color: #ff9800;
+        }
+        
+        .not-paid {
+            color: #999;
+            font-style: italic;
         }
     </style>
 </head>
@@ -144,8 +165,8 @@ $archivedData = getArchivedBookings($pdo);
         <li><a href="add_user.php">Admin Management</a></li>
         <li><a href="calendar.php">Calendar</a></li>
         <li><a href="Inventory.php">Inventory</a></li>
-        <li><a href="payment.php">Payments</a></li> <!-- Fixed line -->
-        <li><a href="Settings.php">Settings</a></li>
+        <li><a href="payment.php">Payments</a></li>
+        <li><a href="admin_management.php">Edit</a></li>
         <li><a href="Index.php?logout=true">Logout</a></li>
     </ul>
 </nav>
@@ -202,6 +223,8 @@ $archivedData = getArchivedBookings($pdo);
                         <th>Date of Inquiry</th>
                         <th>Status</th>
                         <th>Package</th>
+                        <th>GCash Reference</th>
+                        <th>Amount Paid</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -214,6 +237,27 @@ $archivedData = getArchivedBookings($pdo);
                         <?php echo htmlspecialchars($booking['status']); ?>
                         </td>
                         <td><?php echo htmlspecialchars($booking['btevent']);?></td>
+                        <td>
+                            <?php if (!empty($booking['GcashReferenceNo'])): ?>
+                                <span class="gcash-reference">
+                                    <?php echo htmlspecialchars($booking['GcashReferenceNo']); ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="not-paid">Not Paid</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (!empty($booking['AmountPaid'])): ?>
+                                ₱<?php echo number_format($booking['AmountPaid'], 2); ?>
+                                <?php if ($booking['AmountPaid'] < $booking['TotalAmount']): ?>
+                                    <span class="payment-status paid-partial">(Partial)</span>
+                                <?php else: ?>
+                                    <span class="payment-status paid-full">(Full)</span>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <span class="not-paid">-</span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <select class="status-select" onchange="updateStatus('<?php echo htmlspecialchars($booking['id']);?>', this.value)">
                                 <option value=""> Change Status</option>
@@ -242,7 +286,7 @@ $archivedData = getArchivedBookings($pdo);
             </script>
             <script src="../asset_js/dashboard.js"></script>
   
-                         <?php include __DIR__ . '/../includes/admin_list.php'; ?>    
+            <?php include __DIR__ . '/../includes/admin_list.php'; ?>    
 
             <div id="historyModal" class="modal">
                 <div class="modal-content">
@@ -258,6 +302,8 @@ $archivedData = getArchivedBookings($pdo);
                                 <th>Date of Inquiry</th>
                                 <th>Status</th>
                                 <th>Package</th>
+                                <th>GCash Reference</th>
+                                <th>Amount Paid</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -267,7 +313,22 @@ $archivedData = getArchivedBookings($pdo);
                                     <td><?php echo htmlspecialchars($archived['btschedule']); ?></td>
                                     <td><?php echo htmlspecialchars($archived['status']); ?></td>
                                     <td><?php echo htmlspecialchars($archived['btevent']); ?></td>
-
+                                    <td>
+                                        <?php if (!empty($archived['GcashReferenceNo'])): ?>
+                                            <span class="gcash-reference">
+                                                <?php echo htmlspecialchars($archived['GcashReferenceNo']); ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="not-paid">Not Paid</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($archived['AmountPaid'])): ?>
+                                            ₱<?php echo number_format($archived['AmountPaid'], 2); ?>
+                                        <?php else: ?>
+                                            <span class="not-paid">-</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
