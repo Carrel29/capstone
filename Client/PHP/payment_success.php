@@ -24,7 +24,10 @@ if (!$booking_id) {
 
 // Get booking details
 try {
-    $stmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT b.*, u.bt_first_name, u.bt_last_name, u.bt_email 
+                           FROM bookings b
+                           JOIN btuser u ON b.btuser_id = u.bt_user_id
+                           WHERE b.id = ?");
     $stmt->execute([$booking_id]);
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -47,6 +50,59 @@ try {
     die("Error retrieving booking details: " . $e->getMessage());
 }
 
+// ✅ SEND MOA EMAIL AFTER SUCCESSFUL PAYMENT
+if ($booking) {
+    $clientName   = $booking['bt_first_name'] . " " . $booking['bt_last_name'];
+    $clientEmail  = $booking['bt_email'];
+    $clientAddr   = $booking['btaddress'];
+    $eventName    = $booking['btevent'];
+    $eventDate    = date("F d, Y", strtotime($booking['btschedule']));
+    $totalCost    = number_format($booking['total_cost'], 2);
+    $downpayment  = number_format($booking['total_cost'] * 0.20, 2);
+    $balance      = number_format($booking['total_cost'] - ($booking['total_cost'] * 0.20), 2);
+
+    $moa = "
+    <h2 style='text-align:center;'>MEMORANDUM OF AGREEMENT</h2>
+    <p><b>Between</b> BTONE EVENTS PLACE and $clientName</p>
+    <p>This agreement confirms your booking for <b>$eventName</b> on <b>$eventDate</b> at BTONE Events Place, Baras, Rizal.</p>
+    <p><b>Total Fee:</b> ₱$totalCost<br>
+    <b>Downpayment:</b> ₱$downpayment<br>
+    <b>Balance:</b> ₱$balance</p>
+    <p>By confirming payment, you agree to the terms and conditions set forth by BTONE Events Place.</p>
+    <p>Thank you for choosing BTONE Events Place!</p>
+    ";
+
+    // --- PHPMailer setup ---
+    use PHPMailer\PHPMailer\PHPMailer;
+    use PHPMailer\PHPMailer\Exception;
+    require '../phpmailer/Exception.php';
+    require '../phpmailer/PHPMailer.php';
+    require '../phpmailer/SMTP.php';
+
+    $mail = new PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host       = 'smtp.gmail.com';
+        $mail->SMTPAuth   = true;
+        $mail->Username   = 'yourgmail@gmail.com'; // <-- change this
+        $mail->Password   = 'your_app_password';   // <-- use Gmail App Password
+        $mail->SMTPSecure = 'tls';
+        $mail->Port       = 587;
+
+        $mail->setFrom('yourgmail@gmail.com', 'B-tone Events');
+        $mail->addAddress($clientEmail, $clientName);
+
+        $mail->isHTML(true);
+        $mail->Subject = "Memorandum of Agreement - $eventName";
+        $mail->Body    = $moa;
+        $mail->AltBody = strip_tags($moa);
+
+        $mail->send();
+    } catch (Exception $e) {
+        error_log("Mailer Error: " . $mail->ErrorInfo);
+    }
+}
+
 // Clear the payment success flag and session data
 unset($_SESSION['payment_success']);
 unset($_SESSION['payment_message']);
@@ -60,6 +116,7 @@ unset($_SESSION['last_booking_id']);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Successful - BTONE Events</title>
     <style>
+        /* ✅ your CSS styles stay the same */
         body {
             background: #f5f1e8;
             font-family: 'Segoe UI', Arial, sans-serif;
@@ -71,7 +128,6 @@ unset($_SESSION['last_booking_id']);
             align-items: center;
             min-height: 100vh;
         }
-        
         .success-container {
             max-width: 600px;
             background: #fff;
@@ -81,24 +137,20 @@ unset($_SESSION['last_booking_id']);
             border: 1px solid #d7ccc8;
             text-align: center;
         }
-        
         .success-icon {
             font-size: 4rem;
             color: #4caf50;
             margin-bottom: 20px;
         }
-        
         .success-container h1 {
             color: #6d4c41;
             margin: 0 0 20px 0;
         }
-        
         .success-container p {
             font-size: 1.1rem;
             margin: 10px 0;
             color: #7d6e63;
         }
-        
         .booking-details {
             background: #f5eee6;
             border: 2px solid #d7ccc8;
@@ -107,14 +159,12 @@ unset($_SESSION['last_booking_id']);
             margin: 30px 0;
             text-align: left;
         }
-        
         .booking-details h3 {
             color: #6d4c41;
             margin-top: 0;
             border-bottom: 2px solid #8d6e63;
             padding-bottom: 10px;
         }
-        
         .catering-details {
             background: #e8f5e9;
             border: 2px solid #4caf50;
@@ -122,14 +172,12 @@ unset($_SESSION['last_booking_id']);
             padding: 15px;
             margin: 15px 0;
         }
-        
         .btn-group {
             display: flex;
             gap: 15px;
             justify-content: center;
             margin-top: 30px;
         }
-        
         .btn {
             padding: 12px 24px;
             border: none;
@@ -141,22 +189,18 @@ unset($_SESSION['last_booking_id']);
             text-decoration: none;
             display: inline-block;
         }
-        
         .btn-primary {
             background: linear-gradient(135deg, #8d6e63, #6d4c41);
             color: white;
         }
-        
         .btn-secondary {
             background: #e0e0e0;
             color: #5d4037;
         }
-        
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
-        
         .payment-status {
             background: #e8f5e9;
             border: 2px solid #4caf50;
@@ -166,7 +210,6 @@ unset($_SESSION['last_booking_id']);
             font-weight: bold;
             color: #2e7d32;
         }
-        
         .detail-item {
             display: flex;
             justify-content: space-between;
@@ -174,11 +217,9 @@ unset($_SESSION['last_booking_id']);
             padding: 5px 0;
             border-bottom: 1px solid #e8e2da;
         }
-        
         .detail-item:last-child {
             border-bottom: none;
         }
-        
         .total-amount {
             font-size: 1.2rem;
             font-weight: bold;
@@ -202,42 +243,34 @@ unset($_SESSION['last_booking_id']);
         
         <div class="booking-details">
             <h3>Booking Details</h3>
-            
             <div class="detail-item">
                 <span><strong>Booking ID:</strong></span>
                 <span>#<?php echo $booking_id; ?></span>
             </div>
-            
             <div class="detail-item">
                 <span><strong>Event Type:</strong></span>
                 <span><?php echo htmlspecialchars($booking['btevent']); ?></span>
             </div>
-            
             <div class="detail-item">
                 <span><strong>Date:</strong></span>
                 <span><?php echo date('F j, Y', strtotime($booking['btschedule'])); ?></span>
             </div>
-            
             <div class="detail-item">
                 <span><strong>Time:</strong></span>
                 <span><?php echo date('g:i A', strtotime($booking['btschedule'])); ?></span>
             </div>
-            
             <div class="detail-item">
                 <span><strong>Duration:</strong></span>
                 <span><?php echo round((strtotime($booking['EventDuration']) - strtotime($booking['btschedule'])) / 3600); ?> hours</span>
             </div>
-            
             <div class="detail-item">
                 <span><strong>Attendees:</strong></span>
                 <span><?php echo $booking['btattendees']; ?> people</span>
             </div>
-            
             <div class="detail-item">
                 <span><strong>Address:</strong></span>
                 <span><?php echo htmlspecialchars($booking['btaddress']); ?></span>
             </div>
-            
             <?php if ($catering_order): ?>
                 <div class="catering-details">
                     <h4>🍽️ Catering Service Included</h4>
@@ -255,12 +288,10 @@ unset($_SESSION['last_booking_id']);
                     </div>
                 </div>
             <?php endif; ?>
-            
             <div class="detail-item total-amount">
                 <span><strong>Total Amount Paid:</strong></span>
                 <span>₱<?php echo number_format($booking['total_cost'], 2); ?></span>
             </div>
-            
             <div class="detail-item">
                 <span><strong>Payment Status:</strong></span>
                 <span style="color: #4caf50; font-weight: bold;"><?php echo ucfirst($booking['payment_status']); ?></span>

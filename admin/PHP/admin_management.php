@@ -1296,7 +1296,6 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                 <li><a href="add_user.php"><i class="fas fa-users-cog"></i> Admin Management</a></li>
                 <li><a href="calendar.php"><i class="fas fa-calendar"></i> Calendar</a></li>
                 <li><a href="Inventory.php"><i class="fas fa-boxes"></i> Inventory</a></li>
-                <li><a href="payment.php"><i class="fas fa-credit-card"></i> Payments</a></li>
                 <li><a href="admin_management.php" class="active"><i class="fas fa-cogs"></i> Manage Services</a></li>
                 <li><a href="Index.php?logout=true"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
             </ul>

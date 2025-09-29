@@ -301,7 +301,6 @@ $archived_users = getArchivedUsers($pdo);
             <li><a href="add_user.php" class="active">Admin Management</a></li>
             <li><a href="calendar.php">Calendar</a></li>
             <li><a href="Inventory.php">Inventory</a></li>
-            <li><a href="payment.php">Payments</a></li>
             <li><a href="Settings.php">Settings</a></li>
             <li><a href="Index.php?logout=true">Logout</a></li>
         </ul>
