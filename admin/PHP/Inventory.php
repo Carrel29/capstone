@@ -145,179 +145,488 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTONE - Inventory Management</title>
-    <link rel="stylesheet" href="/assets_css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root{
+            --primary-bg: #422b0d;
+            --secondary-bg: #eae7de;
+            --card-bg: #ffffff;
+            --text-light: #ffffff;
+            --text-dark: #000000;
+            --accent: #A08963;
+            --accent-dark: #8a745a;
+            --highlight: #6b411e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body{
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--secondary-bg);
+            color: var(--text-dark);
+            min-height: 100vh;
+        }
+
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 250px;
+            background-color: var(--primary-bg);
+            color: var(--text-light);
+            height: 100vh;
+            padding: 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+        }
+
+        .sidebar .logo {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--accent);
+        }
+
+        .sidebar .logo h2 {
+            font-size: 24px;
+            color: var(--text-light);
+            margin: 0;
+        }
+
+        .nav-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .nav-menu li {
+            margin: 8px 0;
+        }
+
+        .nav-menu li a {
+            text-decoration: none;
+            color: var(--text-light);
+            padding: 12px 16px;
+            display: block;
+            border-radius: 6px;
+            transition: background 0.3s;
+            font-size: 14px;
+        }
+
+        .nav-menu li a:hover,
+        .nav-menu li a.active {
+            background-color: var(--accent-dark);
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+            min-height: 100vh;
+            width: calc(100% - 250px);
+        }
+
+        .section-header {
+            margin: 30px 0 20px 0;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .section-header h2 {
+            color: var(--primary-bg);
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        /* Analytics Section */
+        .analytics-section {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stats-card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stats-card h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: var(--highlight);
+            font-weight: 600;
+        }
+
+        .stats-card p {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 0;
+            color: var(--primary-bg);
+        }
+
+        /* Filters */
+        .filters {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 25px;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 200px;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: var(--highlight);
+            font-size: 14px;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            background: white;
+        }
+
+        /* Tables */
+        .inventory-table, .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .inventory-table thead, .history-table thead {
+            background: var(--primary-bg);
+            color: var(--text-light);
+        }
+
+        .inventory-table th, .history-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            border: none;
+        }
+
+        .inventory-table td, .history-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+
+        .inventory-table tbody tr:hover, .history-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .inventory-table tbody tr:last-child td, .history-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Status Badges */
+        .status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            display: inline-block;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .status-in {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-low {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-out {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .analytics-section {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 200px;
+                padding: 15px;
+            }
+            
+            .main-content {
+                margin-left: 200px;
+                padding: 20px;
+                width: calc(100% - 200px);
+            }
+            
+            .filters {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
+            }
+            
+            .filter-group {
+                min-width: auto;
+            }
+            
+            .inventory-table, .history-table {
+                font-size: 12px;
+            }
+            
+            .inventory-table th, .inventory-table td, 
+            .history-table th, .history-table td {
+                padding: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar {
+                width: 60px;
+                padding: 10px;
+            }
+            
+            .sidebar .logo h2 {
+                font-size: 0;
+            }
+            
+            .sidebar .logo h2:after {
+                content: "B";
+                font-size: 20px;
+            }
+            
+            .nav-menu li a span {
+                display: none;
+            }
+            
+            .main-content {
+                margin-left: 60px;
+                padding: 15px;
+                width: calc(100% - 60px);
+            }
+            
+            .analytics-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .section-header h2 {
+                font-size: 20px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <nav class="sidebar">
-        <div class="logo">
-            <h2>BTONE Admin</h2>
-        </div>
-        <ul class="nav-menu">
-            <li><a href="dashboard.php">📊 Dashboard</a></li>
-            <li><a href="add_user.php">👥 Admin Management</a></li>
-            <li><a href="calendar.php">📅 Calendar</a></li>
-            <li><a href="Inventory.php" class="active">📦 Inventory</a></li>
-            <li><a href="admin_management.php">⚙️ Manage Services</a></li>
-            <li><a href="Index.php?logout=true">🚪 Logout</a></li>
-        </ul>
-    </nav>
+    <div class="dashboard-container">
+        <nav class="sidebar">
+            <div class="logo">
+                <h2>Admin Dashboard</h2>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="add_user.php">Admin Management</a></li>
+                <li><a href="user_management.php">User Management</a></li>
+                <li><a href="calendar.php">Calendar</a></li>
+                <li><a href="Inventory.php" class="active">Inventory</a></li>
+                <li><a href="admin_management.php">Edit</a></li>
+                <li><a href="Index.php?logout=true">Logout</a></li>
+            </ul>
+        </nav>
 
-    <main class="main-content">
-        <div class="section-header">
-            <h2>📦 Equipment Inventory Overview</h2>
-            <small style="color: #666; font-size: 12px;">Auto-updates every 5 minutes</small>
-        </div>
-
-        <!-- Analytics Section -->
-        <div class="analytics-section">
-            <div class="stats-card">
-                <h3>Total Items</h3>
-                <p><?php echo $totalItems; ?></p>
-            </div>
-            <div class="stats-card">
-                <h3>Total Value</h3>
-                <p>₱<?php echo number_format($totalValue, 2); ?></p>
-            </div>
-            <div class="stats-card">
-                <h3>Low Stock</h3>
-                <p style="color: #856404;"><?php echo $lowStockItems; ?></p>
-            </div>
-            <div class="stats-card">
-                <h3>Out of Stock</h3>
-                <p style="color: #721c24;"><?php echo $outOfStockItems; ?></p>
-            </div>
-        </div>
-
-        <!-- Filters Section -->
-        <div class="filters">
-            <div class="filter-group">
-                <label>Check Availability For:</label>
-                <input type="date" value="<?php echo $check_date; ?>" onchange="updateFilters('date', this.value)">
+        <main class="main-content">
+            <div class="section-header">
+                <h2>Equipment Inventory Overview</h2>
+                <small style="color: #666; font-size: 12px;">Auto-updates every 5 minutes</small>
             </div>
 
-            <div class="filter-group">
-                <label>Category:</label>
-                <select onchange="updateFilters('category', this.value)">
-                    <option value="">All Categories</option>
-                    <?php foreach($categories as $cat): ?>
-                        <option value="<?php echo $cat; ?>" <?php echo $category == $cat ? 'selected' : ''; ?>>
-                            <?php echo $cat; ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+            <!-- Analytics Section -->
+            <div class="analytics-section">
+                <div class="stats-card">
+                    <h3>Total Items</h3>
+                    <p><?php echo $totalItems; ?></p>
+                </div>
+                <div class="stats-card">
+                    <h3>Total Value</h3>
+                    <p>₱<?php echo number_format($totalValue, 2); ?></p>
+                </div>
+                <div class="stats-card">
+                    <h3>Low Stock</h3>
+                    <p style="color: #856404;"><?php echo $lowStockItems; ?></p>
+                </div>
+                <div class="stats-card">
+                    <h3>Out of Stock</h3>
+                    <p style="color: #721c24;"><?php echo $outOfStockItems; ?></p>
+                </div>
             </div>
 
-            <div class="filter-group">
-                <label>Status:</label>
-                <select onchange="updateFilters('status', this.value)">
-                    <option value="">All Status</option>
-                    <option value="In Stock" <?php echo $status == 'In Stock' ? 'selected' : ''; ?>>In Stock</option>
-                    <option value="Low Stock" <?php echo $status == 'Low Stock' ? 'selected' : ''; ?>>Low Stock</option>
-                    <option value="Out of Stock" <?php echo $status == 'Out of Stock' ? 'selected' : ''; ?>>Out of Stock</option>
-                </select>
+            <!-- Filters Section -->
+            <div class="filters">
+                <div class="filter-group">
+                    <label>Check Availability For:</label>
+                    <input type="date" value="<?php echo $check_date; ?>" onchange="updateFilters('date', this.value)">
+                </div>
+
+                <div class="filter-group">
+                    <label>Category:</label>
+                    <select onchange="updateFilters('category', this.value)">
+                        <option value="">All Categories</option>
+                        <?php foreach($categories as $cat): ?>
+                            <option value="<?php echo $cat; ?>" <?php echo $category == $cat ? 'selected' : ''; ?>>
+                                <?php echo $cat; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Status:</label>
+                    <select onchange="updateFilters('status', this.value)">
+                        <option value="">All Status</option>
+                        <option value="In Stock" <?php echo $status == 'In Stock' ? 'selected' : ''; ?>>In Stock</option>
+                        <option value="Low Stock" <?php echo $status == 'Low Stock' ? 'selected' : ''; ?>>Low Stock</option>
+                        <option value="Out of Stock" <?php echo $status == 'Out of Stock' ? 'selected' : ''; ?>>Out of Stock</option>
+                    </select>
+                </div>
             </div>
-        </div>
 
-        <!-- Equipment Inventory Table -->
-        <div class="section-header">
-            <h2>🛠️ Equipment Inventory</h2>
-        </div>
+            <!-- Equipment Inventory Table -->
+            <div class="section-header">
+                <h2>Equipment Inventory</h2>
+            </div>
 
-        <table class="inventory-table">
-            <thead>
-                <tr>
-                    <th>Item Name</th>
-                    <th>Category</th>
-                    <th>Total Qty</th>
-                    <th>Available</th>
-                    <th>Booked</th>
-                    <th>Rental Rate</th>
-                    <th>Supplier</th>
-                    <th>Reorder Level</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (!empty($inventory)): ?>
-                    <?php foreach($inventory as $item): 
-                        $status_class = 'in';
-                        $status_text = 'Available';
-                        
-                        if ($item['available_quantity'] <= 0) {
-                            $status_class = 'out';
-                            $status_text = 'Out of Stock';
-                        } elseif ($item['available_quantity'] <= ($item['reorder_level'] ?? 5)) {
-                            $status_class = 'low';
-                            $status_text = 'Low Stock';
-                        }
-                    ?>
-                        <tr>
-                            <td><strong><?php echo htmlspecialchars($item['item_name']); ?></strong></td>
-                            <td><?php echo htmlspecialchars($item['category'] ?? 'Uncategorized'); ?></td>
-                            <td><?php echo htmlspecialchars($item['quantity']); ?></td>
-                            <td><strong><?php echo $item['available_quantity']; ?></strong></td>
-                            <td><?php echo $item['booked_quantity']; ?></td>
-                            <td>₱<?php echo number_format($item['unit_price'], 2); ?></td>
-                            <td><?php echo htmlspecialchars($item['supplier'] ?? 'Not specified'); ?></td>
-                            <td><?php echo htmlspecialchars($item['reorder_level'] ?? 5); ?></td>
-                            <td>
-                                <span class="status status-<?php echo $status_class; ?>">
-                                    <?php echo $status_text; ?>
-                                </span>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
+            <table class="inventory-table">
+                <thead>
                     <tr>
-                        <td colspan="9" style="text-align: center; padding: 30px;">No inventory items found</td>
+                        <th>Item Name</th>
+                        <th>Category</th>
+                        <th>Total Qty</th>
+                        <th>Available</th>
+                        <th>Booked</th>
+                        <th>Rental Rate</th>
+                        <th>Supplier</th>
+                        <th>Reorder Level</th>
+                        <th>Status</th>
                     </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-
-        <!-- Rental History Section -->
-        <div class="section-header">
-            <h2>📋 Recent Rental History</h2>
-        </div>
-
-        <table class="history-table">
-            <thead>
-                <tr>
-                    <th>Item Name</th>
-                    <th>Customer</th>
-                    <th>Rental Start</th>
-                    <th>Rental End</th>
-                    <th>Quantity</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (!empty($rentalHistory)): ?>
-                    <?php foreach($rentalHistory as $row): ?>
+                </thead>
+                <tbody>
+                    <?php if (!empty($inventory)): ?>
+                        <?php foreach($inventory as $item): 
+                            $status_class = 'in';
+                            $status_text = 'Available';
+                            
+                            if ($item['available_quantity'] <= 0) {
+                                $status_class = 'out';
+                                $status_text = 'Out of Stock';
+                            } elseif ($item['available_quantity'] <= ($item['reorder_level'] ?? 5)) {
+                                $status_class = 'low';
+                                $status_text = 'Low Stock';
+                            }
+                        ?>
+                            <tr>
+                                <td><strong><?php echo htmlspecialchars($item['item_name']); ?></strong></td>
+                                <td><?php echo htmlspecialchars($item['category'] ?? 'Uncategorized'); ?></td>
+                                <td><?php echo htmlspecialchars($item['quantity']); ?></td>
+                                <td><strong><?php echo $item['available_quantity']; ?></strong></td>
+                                <td><?php echo $item['booked_quantity']; ?></td>
+                                <td>₱<?php echo number_format($item['unit_price'], 2); ?></td>
+                                <td><?php echo htmlspecialchars($item['supplier'] ?? 'Not specified'); ?></td>
+                                <td><?php echo htmlspecialchars($item['reorder_level'] ?? 5); ?></td>
+                                <td>
+                                    <span class="status status-<?php echo $status_class; ?>">
+                                        <?php echo $status_text; ?>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
                         <tr>
-                            <td><strong><?php echo htmlspecialchars($row['item_name']); ?></strong></td>
-                            <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
-                            <td><?php echo date('M j, Y', strtotime($row['rental_start'])); ?></td>
-                            <td><?php echo date('M j, Y', strtotime($row['rental_end'])); ?></td>
-                            <td><?php echo $row['quantity']; ?></td>
-                            <td>
-                                <span class="status <?php 
-                                    echo $row['status'] === 'Approved' ? 'status-in' : 
-                                         ($row['status'] === 'Pending' ? 'status-low' : 'status-out'); 
-                                ?>">
-                                    <?php echo htmlspecialchars($row['status']); ?>
-                                </span>
-                            </td>
+                            <td colspan="9" style="text-align: center; padding: 30px;">No inventory items found</td>
                         </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <!-- Rental History Section -->
+            <div class="section-header">
+                <h2>Recent Rental History</h2>
+            </div>
+
+            <table class="history-table">
+                <thead>
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 30px;">No rental history found</td>
+                        <th>Item Name</th>
+                        <th>Customer</th>
+                        <th>Rental Start</th>
+                        <th>Rental End</th>
+                        <th>Quantity</th>
+                        <th>Status</th>
                     </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </main>
+                </thead>
+                <tbody>
+                    <?php if (!empty($rentalHistory)): ?>
+                        <?php foreach($rentalHistory as $row): ?>
+                            <tr>
+                                <td><strong><?php echo htmlspecialchars($row['item_name']); ?></strong></td>
+                                <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
+                                <td><?php echo date('M j, Y', strtotime($row['rental_start'])); ?></td>
+                                <td><?php echo date('M j, Y', strtotime($row['rental_end'])); ?></td>
+                                <td><?php echo $row['quantity']; ?></td>
+                                <td>
+                                    <span class="status <?php 
+                                        echo $row['status'] === 'Approved' ? 'status-in' : 
+                                             ($row['status'] === 'Pending' ? 'status-low' : 'status-out'); 
+                                    ?>">
+                                        <?php echo htmlspecialchars($row['status']); ?>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 30px;">No rental history found</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </main>
+    </div>
 
     <script>
     // Filter function
@@ -337,7 +646,7 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
 
     function autoRefreshInventory() {
         refreshCount++;
-        console.log(`🔄 Auto-refreshing inventory... (Refresh #${refreshCount})`);
+        console.log(`Auto-refreshing inventory... (Refresh #${refreshCount})`);
         
         // Show subtle notification
         const notification = document.createElement('div');
@@ -355,7 +664,7 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             animation: slideIn 0.3s ease-out;
         `;
-        notification.innerHTML = '🔄 <strong>Updating Inventory...</strong>';
+        notification.innerHTML = 'Updating Inventory...';
         document.body.appendChild(notification);
         
         // Add CSS animation
@@ -387,20 +696,20 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
     }
 
     // Start auto-refresh timer
-    console.log(`⏰ Inventory auto-refresh enabled (${refreshInterval/60000} minute intervals)`);
+    console.log(`Inventory auto-refresh enabled (${refreshInterval/60000} minute intervals)`);
     const refreshTimer = setInterval(autoRefreshInventory, refreshInterval);
 
     // Also refresh when user returns to the tab (after 30+ minutes away)
     document.addEventListener('visibilitychange', function() {
         if (!document.hidden && refreshCount > 2) { // If user was away for a while
-            console.log('👤 User returned to tab, refreshing inventory...');
+            console.log('User returned to tab, refreshing inventory...');
             autoRefreshInventory();
         }
     });
 
     // Display next refresh time
     const nextRefresh = new Date(Date.now() + refreshInterval);
-    console.log(`⏱️ Next auto-refresh at: ${nextRefresh.toLocaleTimeString()}`);
+    console.log(`Next auto-refresh at: ${nextRefresh.toLocaleTimeString()}`);
     // ==================== END AUTO-REFRESH ====================
     </script>
 </body>

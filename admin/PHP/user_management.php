@@ -123,9 +123,114 @@ $users = getUsers($pdo);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Management - B'Tone Events</title>
-    <link rel="stylesheet" href="admin.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root{
+            --primary-bg: #422b0d;
+            --secondary-bg: #eae7de;
+            --card-bg: #ffffff;
+            --text-light: #ffffff;
+            --text-dark: #000000;
+            --accent: #A08963;
+            --accent-dark: #8a745a;
+            --highlight: #6b411e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body{
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--secondary-bg);
+            color: var(--text-dark);
+            min-height: 100vh;
+        }
+
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+      
+/* Sidebar - Exact match to your original style */
+.sidebar{
+    width: 250px;
+    background-color: var(--primary-bg);
+    color: var(--text-light);
+    height: 100vh;
+    padding: 20px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    overflow-y: auto;
+}
+
+.nav-menu{
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.nav-menu li{
+    margin: 8px 0;
+}
+
+.nav-menu li a{
+    text-decoration: none;
+    color: var(--text-light);
+    padding: 12px 16px;
+    display: block;
+    border-radius: 6px;
+    transition: background 0.3s;
+    font-size: 14px;
+}
+
+.nav-menu li a:hover,
+.nav-menu li a.active {
+    background-color: var(--accent-dark);
+}
+
+.main-content{
+    margin-left: 250px;
+    padding: 30px;
+    min-height: 100vh;
+}
+.sidebar .logo {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--accent);
+        }
+        
+.sidebar .logo h2 {
+            font-size: 24px;
+            color: var(--text-light);
+            margin: 0;
+        }
+
+        .section-header {
+            margin: 0 0 25px 0;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .section-header h2 {
+            color: var(--primary-bg);
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .section-header p {
+            color: var(--highlight);
+            margin-top: 5px;
+            font-size: 16px;
+        }
+
+        /* User Table Styles */
         .user-table {
             width: 100%;
             border-collapse: collapse;
@@ -374,6 +479,16 @@ $users = getUsers($pdo);
         }
         
         @media (max-width: 768px) {
+            .sidebar {
+                width: 200px;
+            }
+            
+            .main-content {
+                margin-left: 200px;
+                padding: 20px;
+                width: calc(100% - 200px);
+            }
+            
             .filters {
                 flex-direction: column;
                 gap: 15px;
@@ -393,92 +508,109 @@ $users = getUsers($pdo);
                 padding: 10px;
             }
         }
+
+        @media (max-width: 480px) {
+            .sidebar {
+                width: 60px;
+            }
+            
+            .nav-menu li a span {
+                display: none;
+            }
+            
+            .main-content {
+                margin-left: 60px;
+                padding: 15px;
+                width: calc(100% - 60px);
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="logo">
-            <h2>Admin Dashboard</h2>
-        </div>
-        <ul class="nav-menu">
-            <li><a href="dashboard.php">Dashboard</a></li>
-            <li><a href="user_management.php" class="active">User Management</a></li>
-            <li><a href="add_user.php">Admin Management</a></li>
-            <li><a href="calendar.php">Calendar</a></li>
-            <li><a href="Inventory.php">Inventory</a></li>
-            <li><a href="payment.php">Payments</a></li>
-            <li><a href="admin_management.php">Edit</a></li>
-            <li><a href="Index.php?logout=true">Logout</a></li>
-        </ul>
+    <div class="dashboard-container">
+        <nav class="sidebar">
+            <div class="logo">
+        <h2>Admin Dashboard</h2>
     </div>
+    <ul class="nav-menu">
+        <li><a href="dashboard.php">Dashboard</a></li>
+        <li><a href="add_user.php">Admin Management</a></li>
+        <li><a href="user_management.php">User Management</a></li>
+        <li><a href="calendar.php">Calendar</a></li>
+        <li><a href="Inventory.php">Inventory</a></li>
+        <li><a href="admin_management.php">Edit</a></li>
+        <li><a href="Index.php?logout=true">Logout</a></li>
+    </ul>
+</nav>
 
-    <div class="main-content">
-        <div class="section-header">
-            <h2>User Management</h2>
-            <p>Manage customer accounts and view their booking history</p>
-        </div>
-        
-        <div class="filters">
-            <div class="filter-group">
-                <label for="search">Search Users</label>
-                <input type="text" id="search" placeholder="Search by name or email...">
+        <main class="main-content">
+            <div class="section-header">
+                <h2>User Management</h2>
+                <p>Manage customer accounts and view their booking history</p>
             </div>
-            <div class="filter-group">
-                <label for="bookingStatus">Booking Status</label>
-                <select id="bookingStatus">
-                    <option value="all">All Users</option>
-                    <option value="booked">Has Upcoming Event</option>
-                    <option value="none">No Event Booked</option>
-                </select>
+            
+            <div class="filters">
+                <div class="filter-group">
+                    <label for="search">Search Users</label>
+                    <input type="text" id="search" placeholder="Search by name or email...">
+                </div>
+                <div class="filter-group">
+                    <label for="bookingStatus">Booking Status</label>
+                    <select id="bookingStatus">
+                        <option value="all">All Users</option>
+                        <option value="booked">Has Upcoming Event</option>
+                        <option value="none">No Event Booked</option>
+                    </select>
+                </div>
             </div>
-        </div>
-        
-        <table class="user-table">
-            <thead>
-                <tr>
-                    <th>Customer Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Registration Date</th>
-                    <th>Upcoming Event</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($users as $user): 
-                    $upcomingBooking = getUserUpcomingBookings($pdo, $user['bt_user_id']);
-                ?>
-                <tr class="user-row" data-user-id="<?php echo $user['bt_user_id']; ?>">
-                    <td><?php echo htmlspecialchars($user['bt_first_name'] . ' ' . $user['bt_last_name']); ?></td>
-                    <td><?php echo htmlspecialchars($user['bt_email']); ?></td>
-                    <td><?php echo htmlspecialchars($user['bt_phone_number']); ?></td>
-                    <td><?php echo date('M j, Y', strtotime($user['bt_created_at'])); ?></td>
-                    <td>
-                        <?php if ($upcomingBooking): ?>
-                            <span class="status-badge status-booked">
-                                <?php echo htmlspecialchars($upcomingBooking['btevent']); ?> - 
-                                <?php echo date('M j, Y', strtotime($upcomingBooking['btschedule'])); ?>
-                            </span>
-                        <?php else: ?>
-                            <span class="status-badge status-none">No event booked</span>
-                        <?php endif; ?>
-                    </td>
-                    <td>
-                        <div class="kebab-menu">
-                            <button class="kebab-btn" onclick="toggleKebabMenu(this)">
-                                <i class="fas fa-ellipsis-v"></i>
-                            </button>
-                            <div class="kebab-dropdown">
-                                <button class="kebab-item" onclick="viewBookingHistory(<?php echo $user['bt_user_id']; ?>, '<?php echo htmlspecialchars($user['bt_first_name'] . ' ' . $user['bt_last_name']); ?>')">
-                                    <i class="fas fa-history"></i> View Booking History
+            
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Customer Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Registration Date</th>
+                        <th>Upcoming Event</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($users as $user): 
+                        $upcomingBooking = getUserUpcomingBookings($pdo, $user['bt_user_id']);
+                    ?>
+                    <tr class="user-row" data-user-id="<?php echo $user['bt_user_id']; ?>">
+                        <td><?php echo htmlspecialchars($user['bt_first_name'] . ' ' . $user['bt_last_name']); ?></td>
+                        <td><?php echo htmlspecialchars($user['bt_email']); ?></td>
+                        <td><?php echo htmlspecialchars($user['bt_phone_number']); ?></td>
+                        <td><?php echo date('M j, Y', strtotime($user['bt_created_at'])); ?></td>
+                        <td>
+                            <?php if ($upcomingBooking): ?>
+                                <span class="status-badge status-booked">
+                                    <?php echo htmlspecialchars($upcomingBooking['btevent']); ?> - 
+                                    <?php echo date('M j, Y', strtotime($upcomingBooking['btschedule'])); ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="status-badge status-none">No event booked</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <div class="kebab-menu">
+                                <button class="kebab-btn" onclick="toggleKebabMenu(this)">
+                                    <i class="fas fa-ellipsis-v"></i>
                                 </button>
+                                <div class="kebab-dropdown">
+                                    <button class="kebab-item" onclick="viewBookingHistory(<?php echo $user['bt_user_id']; ?>, '<?php echo htmlspecialchars($user['bt_first_name'] . ' ' . $user['bt_last_name']); ?>')">
+                                        <i class="fas fa-history"></i> View Booking History
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </main>
     </div>
     
     <!-- Booking History Modal -->

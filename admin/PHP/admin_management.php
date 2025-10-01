@@ -852,31 +852,32 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --primary: #8d6e63;
-            --primary-dark: #6d4c41;
-            --secondary: #f5f1e8;
-            --accent: #ffab91;
-            --text: #5d4037;
-            --light: #ffffff;
-            --gray: #f5f5f5;
-            --border: #d7ccc8;
+            --primary-bg: #422b0d;
+            --secondary-bg: #eae7de;
+            --card-bg: #ffffff;
+            --text-light: #ffffff;
+            --text-dark: #000000;
+            --accent: #A08963;
+            --accent-dark: #8a745a;
+            --highlight: #6b411e;
             --success: #4caf50;
             --danger: #f44336;
             --warning: #ff9800;
             --info: #2196f3;
+            --border: #d7ccc8;
         }
         
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         }
         
         body {
-            background: var(--secondary);
-            color: var(--text);
-            line-height: 1.6;
+            background-color: var(--secondary-bg);
+            color: var(--text-dark);
+            min-height: 100vh;
         }
         
         .dashboard-container {
@@ -887,51 +888,60 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         /* Sidebar Styles */
         .sidebar {
             width: 250px;
-            background: var(--primary);
-            color: white;
-            padding: 20px 0;
-            transition: all 0.3s ease;
+            background-color: var(--primary-bg);
+            color: var(--text-light);
+            height: 100vh;
+            padding: 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
         }
         
-        .logo {
+        .sidebar .logo {
             text-align: center;
-            padding: 0 20px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--accent);
         }
         
-        .logo h2 {
-            font-size: 1.5rem;
+        .sidebar .logo h2 {
+            font-size: 24px;
+            color: var(--text-light);
             margin: 0;
         }
         
         .nav-menu {
             list-style: none;
-            padding: 20px 0;
+            padding: 0;
+            margin: 0;
         }
         
         .nav-menu li {
-            margin-bottom: 5px;
+            margin: 8px 0;
         }
         
-        .nav-menu a {
-            display: block;
-            color: white;
+        .nav-menu li a {
             text-decoration: none;
-            padding: 12px 20px;
-            transition: all 0.3s ease;
-            border-left: 4px solid transparent;
+            color: var(--text-light);
+            padding: 12px 16px;
+            display: block;
+            border-radius: 6px;
+            transition: background 0.3s;
+            font-size: 14px;
         }
         
-        .nav-menu a:hover, .nav-menu a.active {
-            background: rgba(255,255,255,0.1);
-            border-left-color: var(--accent);
+        .nav-menu li a:hover,
+        .nav-menu li a.active {
+            background-color: var(--accent-dark);
         }
         
         /* Main Content */
         .main-content {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
+            margin-left: 250px;
+            padding: 30px;
+            min-height: 100vh;
+            width: calc(100% - 250px);
         }
         
         .management-container {
@@ -940,30 +950,32 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         }
         
         .management-header {
-            background: var(--light);
-            padding: 20px;
+            background: var(--card-bg);
+            padding: 25px;
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
             text-align: center;
         }
         
         .management-header h1 {
-            color: var(--primary);
+            color: var(--primary-bg);
             margin-bottom: 10px;
+            font-size: 28px;
         }
         
         /* Tabs */
         .tab-container {
-            background: var(--light);
+            background: var(--card-bg);
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             overflow: hidden;
+            margin-bottom: 30px;
         }
         
         .tab-buttons {
             display: flex;
-            background: var(--gray);
+            background: var(--secondary-bg);
             border-bottom: 1px solid var(--border);
             flex-wrap: wrap;
         }
@@ -974,14 +986,15 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
             border: none;
             cursor: pointer;
             font-weight: 600;
-            color: var(--text);
+            color: var(--text-dark);
             transition: all 0.3s ease;
             position: relative;
+            font-size: 14px;
         }
         
         .tab-btn.active {
-            background: var(--light);
-            color: var(--primary);
+            background: var(--card-bg);
+            color: var(--primary-bg);
         }
         
         .tab-btn.active::after {
@@ -991,7 +1004,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
             left: 0;
             width: 100%;
             height: 3px;
-            background: var(--primary);
+            background: var(--primary-bg);
         }
         
         .tab-btn i {
@@ -1000,7 +1013,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         
         .tab-content {
             display: none;
-            padding: 20px;
+            padding: 25px;
         }
         
         .tab-content.active {
@@ -1009,17 +1022,18 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         
         /* Cards */
         .card {
-            background: var(--light);
+            background: var(--card-bg);
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
             overflow: hidden;
+            border: 1px solid #f0f0f0;
         }
         
         .card-header {
-            background: var(--primary);
+            background: var(--primary-bg);
             color: white;
-            padding: 15px 20px;
+            padding: 18px 25px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -1027,11 +1041,12 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         
         .card-header h3 {
             margin: 0;
-            font-size: 1.2rem;
+            font-size: 18px;
+            font-weight: 600;
         }
         
         .card-body {
-            padding: 20px;
+            padding: 25px;
         }
         
         /* Forms */
@@ -1043,14 +1058,15 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         }
         
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 18px;
         }
         
         .form-group label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: 600;
-            color: var(--primary);
+            color: var(--highlight);
+            font-size: 14px;
         }
         
         .form-control {
@@ -1060,10 +1076,11 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
             border-radius: 5px;
             font-size: 14px;
             transition: border-color 0.3s ease;
+            background: white;
         }
         
         .form-control:focus {
-            border-color: var(--primary);
+            border-color: var(--primary-bg);
             outline: none;
         }
         
@@ -1077,13 +1094,14 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 10px 20px;
+            padding: 12px 20px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s ease;
             text-decoration: none;
+            font-size: 14px;
         }
         
         .btn i {
@@ -1091,12 +1109,12 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         }
         
         .btn-primary {
-            background: var(--primary);
+            background: var(--primary-bg);
             color: white;
         }
         
         .btn-primary:hover {
-            background: var(--primary-dark);
+            background: var(--highlight);
         }
         
         .btn-danger {
@@ -1127,43 +1145,45 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         }
         
         .btn-sm {
-            padding: 6px 12px;
+            padding: 8px 15px;
             font-size: 12px;
         }
         
         /* Tables */
         .table-container {
             overflow-x: auto;
+            margin-top: 15px;
         }
         
         .table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
         }
         
         .table th, .table td {
             padding: 12px 15px;
             text-align: left;
             border-bottom: 1px solid var(--border);
+            font-size: 14px;
         }
         
         .table th {
-            background: var(--gray);
+            background: var(--secondary-bg);
             font-weight: 600;
-            color: var(--primary);
+            color: var(--primary-bg);
         }
         
         .table tr:hover {
-            background: rgba(141, 110, 99, 0.05);
+            background: rgba(66, 43, 13, 0.05);
         }
         
         /* Messages */
         .message {
-            padding: 15px;
+            padding: 15px 20px;
             margin-bottom: 20px;
             border-radius: 5px;
             border-left: 4px solid;
+            font-size: 14px;
         }
         
         .message.success {
@@ -1196,7 +1216,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
             padding: 0;
             border-radius: 10px;
             width: 90%;
-            max-width: 600px;
+            max-width: 500px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
             animation: modalFadeIn 0.3s;
         }
@@ -1207,9 +1227,9 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         }
         
         .modal-header {
-            background: var(--primary);
+            background: var(--primary-bg);
             color: white;
-            padding: 15px 20px;
+            padding: 18px 25px;
             border-top-left-radius: 10px;
             border-top-right-radius: 10px;
             display: flex;
@@ -1219,6 +1239,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         
         .modal-header h3 {
             margin: 0;
+            font-size: 18px;
         }
         
         .close {
@@ -1233,54 +1254,86 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         }
         
         .modal-body {
-            padding: 20px;
+            padding: 25px;
         }
         
         /* Responsive */
+        @media (max-width: 1024px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
         @media (max-width: 768px) {
-            .dashboard-container {
-                flex-direction: column;
-            }
-            
             .sidebar {
-                width: 100%;
-                padding: 10px 0;
+                width: 200px;
+                padding: 15px;
             }
             
-            .nav-menu {
-                display: flex;
-                overflow-x: auto;
-                padding: 10px 0;
-            }
-            
-            .nav-menu li {
-                margin-bottom: 0;
-                margin-right: 5px;
-            }
-            
-            .nav-menu a {
-                padding: 10px 15px;
-                border-left: none;
-                border-bottom: 3px solid transparent;
-                white-space: nowrap;
-            }
-            
-            .nav-menu a:hover, .nav-menu a.active {
-                border-left-color: transparent;
-                border-bottom-color: var(--accent);
+            .main-content {
+                margin-left: 200px;
+                padding: 20px;
+                width: calc(100% - 200px);
             }
             
             .tab-buttons {
-                flex-wrap: wrap;
+                flex-direction: column;
             }
             
             .tab-btn {
-                padding: 10px 15px;
-                font-size: 14px;
+                padding: 12px 20px;
+                text-align: left;
             }
             
-            .form-grid {
-                grid-template-columns: 1fr;
+            .management-header {
+                padding: 20px;
+            }
+            
+            .management-header h1 {
+                font-size: 24px;
+            }
+            
+            .card-body {
+                padding: 20px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .sidebar {
+                width: 60px;
+                padding: 10px;
+            }
+            
+            .sidebar .logo h2 {
+                font-size: 0;
+            }
+            
+            .sidebar .logo h2:after {
+                content: "B";
+                font-size: 20px;
+            }
+            
+            .nav-menu li a span {
+                display: none;
+            }
+            
+            .main-content {
+                margin-left: 60px;
+                padding: 15px;
+                width: calc(100% - 60px);
+            }
+            
+            .management-header h1 {
+                font-size: 20px;
+            }
+            
+            .tab-content {
+                padding: 15px;
+            }
+            
+            .table th, .table td {
+                padding: 8px 10px;
+                font-size: 12px;
             }
         }
     </style>
@@ -1289,17 +1342,18 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
     <div class="dashboard-container">
         <nav class="sidebar">
             <div class="logo">
-                <h2>BTONE Admin</h2>
-            </div>
-            <ul class="nav-menu">
-                <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-                <li><a href="add_user.php"><i class="fas fa-users-cog"></i> Admin Management</a></li>
-                <li><a href="calendar.php"><i class="fas fa-calendar"></i> Calendar</a></li>
-                <li><a href="Inventory.php"><i class="fas fa-boxes"></i> Inventory</a></li>
-                <li><a href="admin_management.php" class="active"><i class="fas fa-cogs"></i> Manage Services</a></li>
-                <li><a href="Index.php?logout=true"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-            </ul>
-        </nav>
+        <h2>Admin Dashboard</h2>
+    </div>
+    <ul class="nav-menu">
+        <li><a href="dashboard.php">Dashboard</a></li>
+        <li><a href="add_user.php">Admin Management</a></li>
+        <li><a href="user_management.php">User Management</a></li>
+        <li><a href="calendar.php">Calendar</a></li>
+        <li><a href="Inventory.php">Inventory</a></li>
+        <li><a href="admin_management.php">Edit</a></li>
+        <li><a href="Index.php?logout=true">Logout</a></li>
+    </ul>
+</nav>
 
         <main class="main-content">
             <div class="management-container">
@@ -1453,6 +1507,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
 
                     <!-- Services Tab -->
                     <div id="services-tab" class="tab-content <?php echo $active_tab == 'services' ? 'active' : ''; ?>">
+                        <!-- Services content remains the same as before -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_service ? 'Edit Service' : 'Add New Service'; ?></h3>
@@ -1524,6 +1579,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
 
                     <!-- Equipment Tab -->
                     <div id="equipment-tab" class="tab-content <?php echo $active_tab == 'equipment' ? 'active' : ''; ?>">
+                        <!-- Equipment content remains the same as before -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_equipment ? 'Edit Equipment' : 'Add New Equipment'; ?></h3>
@@ -1633,6 +1689,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
 
                     <!-- Catering Packages Tab -->
                     <div id="catering-packages-tab" class="tab-content <?php echo $active_tab == 'catering-packages' ? 'active' : ''; ?>">
+                        <!-- Catering packages content remains the same -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_catering_package ? 'Edit Catering Package' : 'Add New Catering Package'; ?></h3>
@@ -1722,6 +1779,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
 
                     <!-- Catering Dishes Tab -->
                     <div id="catering-dishes-tab" class="tab-content <?php echo $active_tab == 'catering-dishes' ? 'active' : ''; ?>">
+                        <!-- Catering dishes content remains the same -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_catering_dish ? 'Edit Catering Dish' : 'Add New Catering Dish'; ?></h3>
@@ -1819,6 +1877,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
 
                     <!-- Catering Addons Tab -->
                     <div id="catering-addons-tab" class="tab-content <?php echo $active_tab == 'catering-addons' ? 'active' : ''; ?>">
+                        <!-- Catering addons content remains the same -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_catering_addon ? 'Edit Catering Addon' : 'Add New Catering Addon'; ?></h3>
@@ -1896,6 +1955,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
 
                     <!-- Archived Items Tab -->
                     <div id="archived-tab" class="tab-content <?php echo $active_tab == 'archived' ? 'active' : ''; ?>">
+                        <!-- Archived items content remains the same -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-archive"></i> Archived Packages</h3>

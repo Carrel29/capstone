@@ -151,6 +151,59 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
             color: #999;
             font-style: italic;
         }
+        /* Charts Section - Much Smaller Charts */
+.charts-section {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.chart-card {
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    flex: 1;
+}
+
+.chart-card h4 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: var(--highlight);
+    text-align: center;
+    font-weight: 600;
+}
+
+.chart-card canvas {
+    width: 100% !important;
+    height: 150px !important; /* Much smaller */
+    max-height: 150px;
+}
+
+/* For extra small charts */
+.charts-section.compact .chart-card canvas {
+    height: 120px !important;
+    max-height: 120px;
+}
+
+/* If still too big, try this ultra-compact version */
+.charts-section.ultra-compact {
+    gap: 10px;
+}
+
+.charts-section.ultra-compact .chart-card {
+    padding: 8px;
+}
+
+.charts-section.ultra-compact .chart-card canvas {
+    height: 100px !important;
+    max-height: 100px;
+}
+
+.charts-section.ultra-compact .chart-card h4 {
+    font-size: 12px;
+    margin-bottom: 5px;
+}
     </style>
 </head>
 

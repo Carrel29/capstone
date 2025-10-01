@@ -292,19 +292,20 @@ $archived_users = getArchivedUsers($pdo);
 <body>
 <div class="dashboard-container">
     <!-- Sidebar -->
-    <nav class="sidebar">
-        <div class="logo">
-            <h2>Admin Dashboard</h2>
-        </div>
-        <ul class="nav-menu">
-            <li><a href="dashboard.php">Dashboard</a></li>
-            <li><a href="add_user.php" class="active">Admin Management</a></li>
-            <li><a href="calendar.php">Calendar</a></li>
-            <li><a href="Inventory.php">Inventory</a></li>
-            <li><a href="Settings.php">Settings</a></li>
-            <li><a href="Index.php?logout=true">Logout</a></li>
-        </ul>
-    </nav>
+     <nav class="sidebar">
+            <div class="logo">
+        <h2>Admin Dashboard</h2>
+    </div>
+    <ul class="nav-menu">
+        <li><a href="dashboard.php">Dashboard</a></li>
+        <li><a href="add_user.php">Admin Management</a></li>
+        <li><a href="user_management.php">User Management</a></li>
+        <li><a href="calendar.php">Calendar</a></li>
+        <li><a href="Inventory.php">Inventory</a></li>
+        <li><a href="admin_management.php">Edit</a></li>
+        <li><a href="Index.php?logout=true">Logout</a></li>
+    </ul>
+</nav>
 
     <!-- Main Content -->
     <main class="main-content">
