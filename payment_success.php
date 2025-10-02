@@ -1,6 +1,4 @@
 <?php
-   use PHPMailer\PHPMailer\PHPMailer;
-    use PHPMailer\PHPMailer\Exception;
 session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
@@ -64,103 +62,19 @@ if ($booking) {
     $balance      = number_format($booking['total_cost'] - ($booking['total_cost'] * 0.20), 2);
 
     $moa = "
-<h2 style='text-align:center;'>MEMORANDUM OF AGREEMENT</h2>
-
-<p><b>Between</b> BTONE EVENTS PLACE <br> -and- <br> {$booking['bt_first_name']} {$booking['bt_last_name']}</p>
-
-<h3>I. PARTIES</h3>
-<p>
-This Memorandum of Agreement (“MOA”) is entered into on this " . date("jS") . " day of " . date("F") . ", " . date("Y") . ", by and between:
-</p>
-
-<p>
-BTONE Events Place, a duly registered company with principal office at Baras, Rizal, represented herein by its duly authorized representative, hereinafter referred to as the “Events Place Provider”;
-</p>
-
-<p>-and-</p>
-
-<p>
-{$booking['bt_first_name']} {$booking['bt_last_name']}, with principal office/residential address at {$booking['btaddress']}, represented herein by {$booking['bt_first_name']} {$booking['bt_last_name']}, hereinafter referred to as the “Client.”
-</p>
-
-<h3>II. PURPOSE</h3>
-<p>The purpose of this MOA is to establish the terms and conditions for the reservation, use, and payment of facilities at BTONE Events Place in Baras, Rizal, booked through its online platform for the event of the Client.</p>
-
-<h3>III. TERMS AND CONDITIONS</h3>
-
-<ol>
-<li><b>Downpayment and Booking</b>
-   <ul>
-     <li>The Client shall reserve the venue through the official BTONE Events Place online booking system.</li>
-     <li>A 20% downpayment of the total rental fee is required to secure the booking.</li>
-     <li>The downpayment shall be deductible from the total rental fee.</li>
-   </ul>
-</li>
-
-<li><b>Use of Venue</b>
-   <ul>
-     <li>The Events Place Provider grants the Client the right to use the venue located at Baras, Rizal, on the agreed date(s): " . date("F d, Y", strtotime($booking['btschedule'])) . ".</li>
-     <li>The Client shall use the venue only for lawful and agreed purposes.</li>
-   </ul>
-</li>
-
-<li><b>Payment Terms</b>
-   <ul>
-     <li>Total rental fee: ₱" . number_format($booking['total_cost'], 2) . ".</li>
-     <li>Downpayment: 20% of the total rental fee (non-refundable except as provided under cancellation terms).</li>
-     <li>Balance payment of ₱" . number_format($booking['total_cost'] - ($booking['total_cost'] * 0.20), 2) . " shall be settled no later than 7 days before the event.</li>
-   </ul>
-</li>
-
-<li><b>Obligations of BTONE Events Place</b>
-   <ul>
-     <li>Provide access to the venue and facilities as agreed.</li>
-     <li>Ensure the venue is clean, safe, and in good condition prior to the event.</li>
-     <li>Provide necessary support staff (if applicable and agreed upon).</li>
-   </ul>
-</li>
-
-<li><b>Obligations of the Client</b>
-   <ul>
-     <li>Comply with venue rules and regulations.</li>
-     <li>Be responsible for the conduct of guests and participants during the event.</li>
-     <li>Shoulder any damages to the venue or facilities.</li>
-     <li>In cases where items are broken, lost, or damaged due to the Client or their attendees, the Client agrees to shoulder the cost of repair or replacement. A corresponding fee will be determined and mutually agreed upon by both parties after the event.</li>
-   </ul>
-</li>
-
-<li><b>Cancellations and Refunds</b>
-   <ul>
-     <li>If canceled at least 4 weeks before the event date, 10% of the total rental fee will be refunded.</li>
-     <li>If canceled 3 weeks before the event, 5% of the total rental fee will be refunded.</li>
-     <li>If canceled less than 3 weeks before the event, no refund will be provided.</li>
-   </ul>
-</li>
-
-<li><b>Liability and Force Majeure</b>
-   <ul>
-     <li>BTONE Events Place shall not be liable for any loss, accident, or damage to persons or property during the event, except when caused by gross negligence.</li>
-     <li>Neither party shall be held liable for failure to perform obligations due to force majeure events such as natural disasters, government restrictions, or other unforeseen circumstances beyond control.</li>
-   </ul>
-</li>
-</ol>
-
-<h3>IV. EFFECTIVITY</h3>
-<p>This MOA shall take effect on the date of confirmation via email by both parties and shall remain valid until the completion of the agreed event and full settlement of obligations.</p>
-
-<h3>V. AMENDMENTS</h3>
-<p>Any amendments to this MOA shall be made in writing and confirmed via email by both parties.</p>
-
-<h3>VI. GOVERNING LAW</h3>
-<p>This MOA shall be governed by and construed in accordance with the laws of the Republic of the Philippines.</p>
-
-<h3>VII. CONFIRMATION VIA EMAIL</h3>
-<p>As this MOA is transmitted electronically, no handwritten signatures are required. The parties agree that confirmation and acknowledgment via email shall constitute full and binding acceptance of this Agreement.</p>
-";
-
+    <h2 style='text-align:center;'>MEMORANDUM OF AGREEMENT</h2>
+    <p><b>Between</b> BTONE EVENTS PLACE and $clientName</p>
+    <p>This agreement confirms your booking for <b>$eventName</b> on <b>$eventDate</b> at BTONE Events Place, Baras, Rizal.</p>
+    <p><b>Total Fee:</b> ₱$totalCost<br>
+    <b>Downpayment:</b> ₱$downpayment<br>
+    <b>Balance:</b> ₱$balance</p>
+    <p>By confirming payment, you agree to the terms and conditions set forth by BTONE Events Place.</p>
+    <p>Thank you for choosing BTONE Events Place!</p>
+    ";
 
     // --- PHPMailer setup ---
- 
+    use PHPMailer\PHPMailer\PHPMailer;
+    use PHPMailer\PHPMailer\Exception;
     require '../phpmailer/Exception.php';
     require '../phpmailer/PHPMailer.php';
     require '../phpmailer/SMTP.php';
@@ -171,11 +85,11 @@ BTONE Events Place, a duly registered company with principal office at Baras, Ri
         $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
         $mail->Username   = 'lanceaeronm@gmail.com'; // <-- change this
-        $mail->Password   = 'ayafwvtojufvfzrf';   // <-- use Gmail App Password
+        $mail->Password   = 'iaci donk fuaa zhvd';   // <-- use Gmail App Password
         $mail->SMTPSecure = 'tls';
         $mail->Port       = 587;
 
-        $mail->setFrom('lanceaeronm@gmail.com', 'B-tone Events');
+        $mail->setFrom('yourgmail@gmail.com', 'B-tone Events');
         $mail->addAddress($clientEmail, $clientName);
 
         $mail->isHTML(true);

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: Sep 29, 2025 at 03:34 AM
+-- Generation Time: Oct 02, 2025 at 11:58 AM
 -- Server version: 9.1.0
 -- PHP Version: 8.3.14
 
@@ -221,7 +221,7 @@ CREATE TABLE IF NOT EXISTS `bookings` (
   `payment_status` enum('unpaid','partial','paid') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'unpaid',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=37 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `bookings`
@@ -235,23 +235,29 @@ INSERT INTO `bookings` (`id`, `btuser_id`, `btaddress`, `btevent`, `btschedule`,
 (8, 6, 'EVERLASTING ST.', 'Weddings', '2025-05-31 04:03:00', '2025-06-01 04:03:00', 0, 0, 123, 'LED Wall', 'hello', 'Completed', 'unpaid', '2025-05-11 20:03:39'),
 (9, 6, 'EVERLASTING ST.', 'Weddings', '2025-05-17 04:09:00', '2025-05-17 16:09:00', 0, 0, 123, 'Band Equipment (On venue setup only)', 'hi', 'Completed', 'unpaid', '2025-05-11 20:09:35'),
 (10, 6, 'EVERLASTING ST.', 'Weddings', '2025-05-12 11:20:00', '2025-05-12 23:20:00', 0, 0, 12, 'LED Wall', 'asdasd', 'Completed', 'unpaid', '2025-05-12 03:20:51'),
-(13, 10, 'asdasd', 'Birthday Party', '2025-09-27 08:00:00', '2025-09-27 14:00:00', 25000, 0, 30, '', '', 'Approved', 'partial', '2025-09-19 06:36:23'),
-(14, 10, '20hdasklhd', 'Graduation', '2025-09-28 09:00:00', '2025-09-28 15:00:00', 22000, 0, 40, '', '', 'Approved', 'partial', '2025-09-19 08:12:02'),
-(15, 5, 'gkjgk', 'Corporate Event', '2025-09-26 09:00:00', '2025-09-26 15:00:00', 300, 0, 44, '', '', 'Pending', 'unpaid', '2025-09-19 14:26:16'),
+(13, 10, 'asdasd', 'Birthday Party', '2025-09-27 08:00:00', '2025-09-27 14:00:00', 25000, 0, 30, '', '', 'Completed', 'partial', '2025-09-19 06:36:23'),
+(14, 10, '20hdasklhd', 'Graduation', '2025-09-28 09:00:00', '2025-09-28 15:00:00', 22000, 0, 40, '', '', 'Completed', 'partial', '2025-09-19 08:12:02'),
+(15, 5, 'gkjgk', 'Corporate Event', '2025-09-26 09:00:00', '2025-09-26 15:00:00', 300, 0, 44, '', '', 'Completed', 'unpaid', '2025-09-19 14:26:16'),
 (16, 5, 'asdasdas', 'Wedding Package', '2025-09-25 09:00:00', '2025-09-25 17:00:00', 50000, 0, 100, '', '', 'Completed', 'unpaid', '2025-09-21 04:13:24'),
 (17, 5, 'asdasd', 'Corporate Event', '2025-09-25 10:00:00', '2025-09-25 16:00:00', 40000, 0, 100, '', '', 'Completed', 'unpaid', '2025-09-22 07:02:51'),
-(19, 5, 'asdasd', 'Corporate Event', '2025-09-25 20:10:00', '2025-09-26 02:10:00', 40000, 0, 100, '', '', 'Pending', 'unpaid', '2025-09-22 09:10:41'),
+(19, 5, 'asdasd', 'Corporate Event', '2025-09-25 20:10:00', '2025-09-26 02:10:00', 40000, 0, 100, '', '', 'Completed', 'unpaid', '2025-09-22 09:10:41'),
 (20, 5, 'asdasd', 'Wedding Package', '2025-09-24 09:00:00', '2025-09-24 17:00:00', 50000, 0, 100, '', '', 'Completed', 'unpaid', '2025-09-23 10:59:05'),
 (21, 5, 'gkjgk', 'Corporate Event', '2025-09-25 09:00:00', '2025-09-25 15:00:00', 43500, 0, 100, 'Band Equipment (On venue setup only)', '', 'Completed', 'unpaid', '2025-09-24 12:18:24'),
-(22, 5, 'gkjgk', 'Corporate Event', '2025-09-25 20:23:00', '2025-09-26 02:23:00', 50500, 0, 100, 'Acrylic Stage - 12x20 Ft', '', 'Pending', 'unpaid', '2025-09-24 12:23:26'),
-(23, 5, 'gkjgk', 'Wedding Package', '2025-09-25 20:23:00', '2025-09-26 04:23:00', 50000, 0, 100, '', '', 'Pending', 'unpaid', '2025-09-24 12:23:43'),
-(24, 5, 'gkjgk', 'Wedding Package', '2025-09-25 22:18:00', '2025-09-26 06:18:00', 51120, 0, 100, 'Red Carpet (From entrance to stage)', '', 'Pending', 'unpaid', '2025-09-24 14:18:21'),
-(25, 5, 'gkjgk', 'Wedding Package', '2025-09-25 22:18:00', '2025-09-26 06:18:00', 51120, 0, 100, 'Red Carpet (From entrance to stage)', '', 'Pending', 'unpaid', '2025-09-24 15:01:47'),
-(26, 5, 'gkjgk', 'Wedding Package', '2025-09-25 23:02:00', '2025-09-26 07:02:00', 51120, 0, 100, 'Red Carpet (From entrance to stage)', '', 'Pending', 'unpaid', '2025-09-24 15:02:11'),
+(22, 5, 'gkjgk', 'Corporate Event', '2025-09-25 20:23:00', '2025-09-26 02:23:00', 50500, 0, 100, 'Acrylic Stage - 12x20 Ft', '', 'Completed', 'unpaid', '2025-09-24 12:23:26'),
+(23, 5, 'gkjgk', 'Wedding Package', '2025-09-25 20:23:00', '2025-09-26 04:23:00', 50000, 0, 100, '', '', 'Completed', 'unpaid', '2025-09-24 12:23:43'),
+(24, 5, 'gkjgk', 'Wedding Package', '2025-09-25 22:18:00', '2025-09-26 06:18:00', 51120, 0, 100, 'Red Carpet (From entrance to stage)', '', 'Completed', 'unpaid', '2025-09-24 14:18:21'),
+(25, 5, 'gkjgk', 'Wedding Package', '2025-09-25 22:18:00', '2025-09-26 06:18:00', 51120, 0, 100, 'Red Carpet (From entrance to stage)', '', 'Completed', 'unpaid', '2025-09-24 15:01:47'),
+(26, 5, 'gkjgk', 'Wedding Package', '2025-09-25 23:02:00', '2025-09-26 07:02:00', 51120, 0, 100, 'Red Carpet (From entrance to stage)', '', 'Completed', 'unpaid', '2025-09-24 15:02:11'),
 (27, 5, 'gkjgk', 'Corporate Event', '2025-09-25 15:10:00', '2025-09-25 21:10:00', 41350, 0, 100, 'Red Carpet (From entrance to stage)', '', 'Completed', 'unpaid', '2025-09-24 15:10:13'),
-(28, 5, 'EVERLASTING ST.', 'Birthday Party', '2025-09-27 09:00:00', '2025-09-27 15:00:00', 28500, 0, 100, 'Bridal Car - Vios', '', 'Pending', 'unpaid', '2025-09-24 15:13:09'),
+(28, 5, 'EVERLASTING ST.', 'Birthday Party', '2025-09-27 09:00:00', '2025-09-27 15:00:00', 28500, 0, 100, 'Bridal Car - Vios', '', 'Completed', 'unpaid', '2025-09-24 15:13:09'),
 (29, 5, 'gkjgk', 'Wedding Package', '2025-09-25 02:27:00', '2025-09-25 10:27:00', 63500, 0, 100, 'Bridal Car - Vios', '', 'Completed', 'paid', '2025-09-24 17:27:57'),
-(30, 5, 'gkjgk', 'Wedding Package', '2025-09-26 09:00:00', '2025-09-26 17:00:00', 50000, 0, 100, '', '', 'Pending', 'unpaid', '2025-09-24 18:37:39');
+(30, 5, 'gkjgk', 'Wedding Package', '2025-09-26 09:00:00', '2025-09-26 17:00:00', 50000, 0, 100, '', '', 'Completed', 'unpaid', '2025-09-24 18:37:39'),
+(31, 5, 'URS', 'Corporate Event', '2025-10-09 09:00:00', '2025-10-09 15:00:00', 60500, 0, 100, 'Acrylic Stage - 12x20 Ft', '', 'Pending', 'paid', '2025-10-02 05:19:43'),
+(32, 5, 'URS', 'Wedding Packages', '2025-10-10 09:00:00', '2025-10-10 17:00:00', 76700, 0, 100, 'LED Wall', 'batoy', 'Pending', 'paid', '2025-10-02 05:26:31'),
+(33, 5, 'URS', 'Corporate Event', '2025-10-20 09:00:00', '2025-10-20 15:00:00', 50410, 0, 100, '', '', 'Pending', 'paid', '2025-10-02 10:34:54'),
+(34, 5, 'URS', 'Birthday Party', '2025-10-11 09:00:00', '2025-10-11 15:00:00', 35300, 0, 100, '', '', 'Pending', 'paid', '2025-10-02 10:39:46'),
+(35, 5, 'URS', 'Custom', '2025-09-10 13:00:00', '2025-09-10 17:00:00', 30365, 0, 10, '', '', 'Completed', 'paid', '2025-10-02 10:46:51'),
+(36, 5, 'URS', 'Birthday Party', '2025-10-12 09:00:00', '2025-10-12 15:00:00', 51685, 0, 100, '', '', 'Pending', 'paid', '2025-10-02 10:55:07');
 
 -- --------------------------------------------------------
 
@@ -553,7 +559,7 @@ CREATE TABLE IF NOT EXISTS `catering_orders` (
   PRIMARY KEY (`id`),
   KEY `booking_id` (`booking_id`),
   KEY `package_id` (`package_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `catering_orders`
@@ -572,7 +578,13 @@ INSERT INTO `catering_orders` (`id`, `booking_id`, `package_id`, `status`, `crea
 (10, 28, 3, 'pending', '2025-09-24 15:13:11'),
 (11, 28, 3, 'confirmed', '2025-09-24 15:37:46'),
 (12, 29, 3, 'confirmed', '2025-09-24 18:26:38'),
-(13, 30, 3, 'confirmed', '2025-09-24 18:37:46');
+(13, 30, 3, 'confirmed', '2025-09-24 18:37:46'),
+(14, 31, 3, 'confirmed', '2025-10-02 05:19:53'),
+(15, 32, 3, 'confirmed', '2025-10-02 05:26:37'),
+(16, 33, 3, 'confirmed', '2025-10-02 10:34:59'),
+(17, 34, 3, 'confirmed', '2025-10-02 10:39:48'),
+(18, 35, 3, 'confirmed', '2025-10-02 10:46:55'),
+(19, 36, 4, 'confirmed', '2025-10-02 10:55:09');
 
 -- --------------------------------------------------------
 
@@ -589,7 +601,14 @@ CREATE TABLE IF NOT EXISTS `catering_order_addons` (
   PRIMARY KEY (`id`),
   KEY `catering_order_id` (`catering_order_id`),
   KEY `addon_id` (`addon_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `catering_order_addons`
+--
+
+INSERT INTO `catering_order_addons` (`id`, `catering_order_id`, `addon_id`, `created_at`) VALUES
+(1, 18, 6, '2025-10-02 10:48:34');
 
 -- --------------------------------------------------------
 
@@ -606,7 +625,7 @@ CREATE TABLE IF NOT EXISTS `catering_order_dishes` (
   PRIMARY KEY (`id`),
   KEY `catering_order_id` (`catering_order_id`),
   KEY `dish_id` (`dish_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `catering_order_dishes`
@@ -618,7 +637,23 @@ INSERT INTO `catering_order_dishes` (`id`, `catering_order_id`, `dish_id`, `crea
 (3, 13, 21, '2025-09-24 18:53:31'),
 (4, 13, 40, '2025-09-24 18:53:31'),
 (5, 13, 54, '2025-09-24 18:53:31'),
-(6, 13, 52, '2025-09-24 18:53:32');
+(6, 13, 52, '2025-09-24 18:53:32'),
+(7, 14, 34, '2025-10-02 05:21:07'),
+(8, 14, 14, '2025-10-02 05:21:07'),
+(9, 14, 13, '2025-10-02 05:21:07'),
+(10, 14, 40, '2025-10-02 05:21:07'),
+(11, 14, 54, '2025-10-02 05:21:07'),
+(12, 14, 57, '2025-10-02 05:21:07'),
+(13, 14, 6, '2025-10-02 05:21:07'),
+(14, 15, 34, '2025-10-02 05:26:59'),
+(15, 15, 14, '2025-10-02 05:26:59'),
+(16, 15, 10, '2025-10-02 05:26:59'),
+(17, 15, 13, '2025-10-02 05:26:59'),
+(18, 16, 38, '2025-10-02 10:35:35'),
+(19, 16, 14, '2025-10-02 10:35:35'),
+(20, 16, 13, '2025-10-02 10:35:35'),
+(21, 16, 2, '2025-10-02 10:35:35'),
+(22, 16, 55, '2025-10-02 10:35:35');
 
 -- --------------------------------------------------------
 
@@ -762,33 +797,33 @@ CREATE TABLE IF NOT EXISTS `inventory` (
 --
 
 INSERT INTO `inventory` (`id`, `item_name`, `description`, `category`, `category_id`, `quantity`, `unit_price`, `supplier`, `reorder_level`, `last_restock_date`, `status`, `created_at`, `updated_at`, `available_quantity`, `rented_quantity`) VALUES
-(11, 'Professional Speaker', NULL, 'Sound Equipment', 1, 20, 150.00, 'Sound Pro Inc.', 5, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-09-20 11:22:02', 7, 13),
-(12, 'Wireless Microphone', NULL, 'Sound Equipment', 1, 15, 800.00, 'Sound Pro Inc.', 3, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-09-25 17:03:25', 6, 13),
-(13, 'LED Wall Panels', NULL, '', 2, 50, 200.00, 'Visual Tech Ltd.', 10, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-09-24 06:54:45', 50, 0),
-(14, 'Stage Light', NULL, 'Lighting Equipment', 3, 30, 100.00, 'Light Masters', 6, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-09-25 17:03:25', 21, 10),
-(15, 'Fog Machine', NULL, '', NULL, 8, 120.00, 'Effects Plus', 2, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-09-25 17:03:25', 8, 2),
-(16, 'Round Table', NULL, 'Furniture', 5, 40, 350.00, 'Event Furnish', 10, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-09-25 17:03:25', 36, 1),
-(17, 'Banquet Chair', NULL, 'Furniture', 5, 400, 20.00, 'Event Furnish', 50, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-09-25 17:03:25', 398, 0),
-(18, 'Line Array Speaker System', NULL, 'Sound Equipment', 1, 4, 8000.00, 'Sound Pro Inc.', 1, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 4, 0),
+(11, 'Professional Speaker', NULL, 'Sound Equipment', 1, 20, 150.00, 'Sound Pro Inc.', 5, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-10-02 11:57:02', 17, 13),
+(12, 'Wireless Microphone', NULL, 'Sound Equipment', 1, 15, 800.00, 'Sound Pro Inc.', 3, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-10-02 10:55:07', 14, 14),
+(13, 'LED Wall Panels', NULL, '', 2, 50, 200.00, 'Visual Tech Ltd.', 10, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-10-02 11:57:02', 50, 1),
+(14, 'Stage Light', NULL, 'Lighting Equipment', 3, 30, 100.00, 'Light Masters', 6, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-10-02 11:57:02', 28, 10),
+(15, 'Fog Machine', NULL, '', NULL, 8, 120.00, 'Effects Plus', 2, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-10-02 11:57:02', 8, 3),
+(16, 'Round Table', NULL, 'Furniture', 5, 40, 350.00, 'Event Furnish', 10, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-10-02 11:57:02', 40, 3),
+(17, 'Banquet Chair', NULL, 'Furniture', 5, 400, 20.00, 'Event Furnish', 50, NULL, 'In Stock', '2025-02-02 07:52:35', '2025-10-02 11:57:02', 399, 0),
+(18, 'Line Array Speaker System', NULL, 'Sound Equipment', 1, 4, 8000.00, 'Sound Pro Inc.', 1, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-10-02 11:57:02', 4, 1),
 (19, 'Mixer 16 Channel', NULL, 'Sound Equipment', 1, 5, 2500.00, 'Audio Tech', 1, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 5, 0),
 (20, 'Powered Subwoofer', NULL, 'Sound Equipment', 1, 8, 2000.00, 'Sound Pro Inc.', 2, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 8, 0),
-(21, 'Stage Platform 4x8', NULL, 'Display Equipment', NULL, 12, 1500.00, 'Event Essentials', 3, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 12, 0),
+(21, 'Stage Platform 4x8', NULL, 'Display Equipment', NULL, 12, 1500.00, 'Event Essentials', 3, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-10-02 11:57:02', 12, 1),
 (22, 'Fog Machine', NULL, 'Lighting Equipment', 3, 6, 1200.00, 'Light Masters', 2, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 6, 0),
-(23, 'Tiffany Chair', NULL, 'Furniture', 5, 200, 50.00, 'Event Essentials', 20, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 200, 0),
-(24, 'Cocktail Table', NULL, 'Furniture', 5, 20, 300.00, 'Event Essentials', 5, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 20, 0),
-(25, 'Coffee Urn', NULL, 'Catering Equipment', NULL, 10, 1000.00, 'Kitchen Pro', 2, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 10, 0),
+(23, 'Tiffany Chair', NULL, 'Furniture', 5, 200, 50.00, 'Event Essentials', 20, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-10-02 11:57:02', 200, 1),
+(24, 'Cocktail Table', NULL, 'Furniture', 5, 20, 300.00, 'Event Essentials', 5, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-10-02 11:57:02', 20, 1),
+(25, 'Coffee Urn', NULL, 'Catering Equipment', NULL, 10, 1000.00, 'Kitchen Pro', 2, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-10-02 11:57:02', 10, 1),
 (26, 'Stage Light Truss 10ft', NULL, 'Lighting Equipment', 3, 10, 1800.00, 'Light Masters', 2, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 10, 0),
 (27, 'LED Strip Light 5m', NULL, 'Lighting Equipment', 3, 20, 500.00, 'Light Masters', 5, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 20, 0),
 (28, 'Portable Aircon', NULL, 'Display Equipment', NULL, 8, 3500.00, 'Event Essentials', 2, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 8, 0),
 (29, 'Photo Backdrop Stand', NULL, 'Display Equipment', NULL, 5, 800.00, 'Display Solutions', 1, NULL, 'In Stock', '2025-02-04 11:15:07', '2025-09-25 17:03:25', 5, 0),
-(30, 'Professional Speaker 1000W', NULL, 'Sound Equipment', 1, 10, 200.00, 'Sound Pro Inc.', 2, NULL, 'In Stock', '2025-02-04 11:16:32', '2025-09-25 17:03:25', 10, 0),
+(30, 'Professional Speaker 1000W', NULL, 'Sound Equipment', 1, 10, 200.00, 'Sound Pro Inc.', 2, NULL, 'In Stock', '2025-02-04 11:16:32', '2025-10-02 11:57:02', 10, 1),
 (31, 'Wireless Microphone', NULL, 'Sound Equipment', 1, 15, 50.00, 'Audio Tech', 3, NULL, 'In Stock', '2025-02-04 11:16:32', '2025-09-25 17:03:25', 15, 0),
 (32, 'LED Wall Panel 4x4', NULL, 'Display Equipment', NULL, 8, 500.00, 'Display Solutions', 2, NULL, 'In Stock', '2025-02-04 11:16:32', '2025-09-25 17:03:25', 8, 0),
 (33, 'LED Par Light', NULL, 'Lighting Equipment', 3, 20, 75.00, 'Light Masters', 5, NULL, 'In Stock', '2025-02-04 11:16:32', '2025-09-25 17:03:25', 20, 0),
 (34, 'Moving Head Light', NULL, 'Lighting Equipment', 3, 12, 150.00, 'Light Masters', 3, NULL, 'In Stock', '2025-02-04 11:16:32', '2025-09-25 17:03:25', 12, 0),
 (35, 'Round Table', NULL, 'Furniture', 5, 30, 40.00, 'Event Essentials', 5, NULL, 'In Stock', '2025-02-04 11:16:32', '2025-09-25 17:03:25', 30, 0),
-(36, 'Chafing Dish', NULL, 'Catering Equipment', NULL, 25, 45.00, 'Kitchen Pro', 5, NULL, 'In Stock', '2025-02-04 11:16:32', '2025-09-25 17:03:25', 25, 0),
-(37, 'Table Cloth', NULL, 'Decorations', NULL, 50, 15.00, 'Event Essentials', 10, NULL, 'In Stock', '2025-02-04 11:16:32', '2025-09-25 17:03:25', 50, 0);
+(36, 'Chafing Dish', NULL, 'Catering Equipment', NULL, 25, 45.00, 'Kitchen Pro', 5, NULL, 'In Stock', '2025-02-04 11:16:32', '2025-10-02 11:57:02', 25, 1),
+(37, 'Table Cloth', NULL, 'Decorations', NULL, 50, 15.00, 'Event Essentials', 10, NULL, 'In Stock', '2025-02-04 11:16:32', '2025-10-02 11:57:02', 50, 2);
 
 -- --------------------------------------------------------
 
@@ -881,7 +916,7 @@ CREATE TABLE IF NOT EXISTS `packages` (
 --
 
 INSERT INTO `packages` (`id`, `name`, `base_price`, `base_attendees`, `min_attendees`, `max_attendees`, `excess_price`, `duration`, `includes`, `status`, `created_at`) VALUES
-(1, 'Wedding Package', 50000.00, 100, 100, 150, 800.00, 8, 'Venue rental for 8 hours, Event Coordination & Setup, Lights (2x), Speakers (4x), Tables & Chairs with linens, Backdrop & stage decor, Basic catering for 100 pax', 'active', '2025-09-20 14:10:08'),
+(1, 'Wedding Packages', 50000.00, 100, 100, 150, 800.00, 8, 'Venue rental for 8 hours, Event Coordination & Setup, Lights (2x), Speakers (4x), Tables & Chairs with linens, Backdrop & stage decor, Basic catering for 100 pax', 'active', '2025-09-20 14:10:08'),
 (2, 'Corporate Event', 40000.00, 100, 100, 150, 700.00, 6, 'Venue rental for 6 hours, Professional stage & backdrop, Projector & screen, Lights (4x), Speakers (4x), Tables & chairs, Basic catering for 100 pax', 'active', '2025-09-20 14:10:08'),
 (3, 'Birthday Party', 25000.00, 100, 100, 150, 600.00, 6, 'Venue rental for 6 hours, Themed backdrop & balloons, Lights (2x), Speakers (2x), Tables & chairs with covers, Basic catering for 100 pax', 'active', '2025-09-20 14:10:08');
 
@@ -901,7 +936,7 @@ CREATE TABLE IF NOT EXISTS `payment_status_log` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `booking_id` (`booking_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `payment_status_log`
@@ -910,7 +945,15 @@ CREATE TABLE IF NOT EXISTS `payment_status_log` (
 INSERT INTO `payment_status_log` (`id`, `booking_id`, `old_payment_status`, `new_payment_status`, `changed_by`, `created_at`) VALUES
 (1, 13, 'unpaid', 'partial', 'Customer', '2025-09-19 06:36:23'),
 (2, 14, 'unpaid', 'partial', 'Customer', '2025-09-19 08:12:02'),
-(3, 29, 'unpaid', 'paid', 'Customer', '2025-09-24 18:29:27');
+(3, 29, 'unpaid', 'paid', 'Customer', '2025-09-24 18:29:27'),
+(4, 31, 'unpaid', 'partial', 'Customer', '2025-10-02 05:21:52'),
+(5, 31, 'unpaid', 'partial', 'Customer', '2025-10-02 05:22:15'),
+(6, 31, 'unpaid', 'paid', 'Customer', '2025-10-02 05:22:20'),
+(7, 32, 'unpaid', 'paid', 'Customer', '2025-10-02 05:27:15'),
+(8, 33, 'unpaid', 'paid', 'Customer', '2025-10-02 10:35:44'),
+(9, 34, 'unpaid', 'paid', 'Customer', '2025-10-02 10:40:35'),
+(10, 35, 'unpaid', 'paid', 'Customer', '2025-10-02 10:48:40'),
+(11, 36, 'unpaid', 'paid', 'Customer', '2025-10-02 10:56:06');
 
 -- --------------------------------------------------------
 
@@ -931,7 +974,7 @@ CREATE TABLE IF NOT EXISTS `sales` (
   `DateUpdate` datetime DEFAULT NULL,
   `userUpdated_Id` int DEFAULT NULL,
   PRIMARY KEY (`sales_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `sales`
@@ -941,7 +984,15 @@ INSERT INTO `sales` (`sales_id`, `btuser_id`, `booking_id`, `GcashReferenceNo`, 
 (1, 10, 12, '195250', 25000, 20000, 1, '2025-09-19 14:27:13', NULL, NULL),
 (2, 10, 13, '195250', 25000, 20000, 1, '2025-09-19 14:36:23', NULL, NULL),
 (3, 10, 14, '214124313', 22000, 4400, 1, '2025-09-19 16:12:02', NULL, NULL),
-(4, 5, 29, '09123', 63500, 63500, 1, '2025-09-25 02:29:27', NULL, NULL);
+(4, 5, 29, '09123', 63500, 63500, 1, '2025-09-25 02:29:27', NULL, NULL),
+(5, 5, 31, '12334345', 60500, 15100, 1, '2025-10-02 13:21:52', NULL, NULL),
+(6, 5, 31, '12334345', 60500, 15100, 1, '2025-10-02 13:22:15', NULL, NULL),
+(7, 5, 31, '12334345', 60500, 60500, 1, '2025-10-02 13:22:20', NULL, NULL),
+(8, 5, 32, '12345678', 76700, 76700, 1, '2025-10-02 13:27:15', NULL, NULL),
+(9, 5, 33, '1234567890', 50410, 50410, 1, '2025-10-02 18:35:44', NULL, NULL),
+(10, 5, 34, '1234567890', 35300, 35300, 1, '2025-10-02 18:40:35', NULL, NULL),
+(11, 5, 35, '1234567890', 30365, 30365, 1, '2025-10-02 18:48:40', NULL, NULL),
+(12, 5, 36, '1234567890', 51685, 51685, 1, '2025-10-02 18:56:06', NULL, NULL);
 
 -- --------------------------------------------------------
 
