@@ -27,6 +27,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_booking'])) {
             }
         }
 
+        // Validate date - must be at least 2 weeks from today
+        $selected_date = $_POST['event_date'];
+        $current_date = date('Y-m-d');
+        $min_booking_date = date('Y-m-d', strtotime($current_date . ' + 2 weeks'));
+        
+        if ($selected_date < $min_booking_date) {
+            $next_available_date = $min_booking_date;
+            $formatted_next_date = date('F j, Y', strtotime($next_available_date));
+            throw new Exception("Booking must be made at least 2 weeks in advance. The earliest available date is $formatted_next_date.");
+        }
+
         // Prepare data
         $user_id = $_SESSION['user_id'];
         $btaddress = trim($_POST['btaddress']);
@@ -845,6 +856,31 @@ try {
             });
         }
         
+        // Function to validate selected date
+        function validateSelectedDate(dateStr) {
+            const currentDate = new Date();
+            const selectedDate = new Date(dateStr);
+            const minBookingDate = new Date();
+            minBookingDate.setDate(currentDate.getDate() + 14); // Add 2 weeks
+            
+            // Reset time part for accurate comparison
+            currentDate.setHours(0, 0, 0, 0);
+            selectedDate.setHours(0, 0, 0, 0);
+            minBookingDate.setHours(0, 0, 0, 0);
+            
+            return {
+                isValid: selectedDate >= minBookingDate,
+                minBookingDate: minBookingDate,
+                nextAvailableDate: minBookingDate.toISOString().split('T')[0],
+                formattedNextDate: minBookingDate.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                })
+            };
+        }
+        
         // Modal functions
         function showModal(title, content) {
             document.getElementById('modalTitle').textContent = title;
@@ -863,8 +899,31 @@ try {
             });
         });
 
-        // Updated handleDateClick function
+        // Updated handleDateClick function with date validation
         function handleDateClick(dateStr, color) {
+            // Validate the selected date
+            const dateValidation = validateSelectedDate(dateStr);
+            
+            if (!dateValidation.isValid) {
+                showModal('Date Not Available', 
+                    `<div style="text-align: center;">
+                        <p style="color: #f36c6c; font-weight: bold; font-size: 1.1rem;">
+                            ❌ Booking must be made at least 2 weeks in advance.
+                        </p>
+                        <p style="margin: 15px 0; color: #5d4037;">
+                            You selected: <strong>${formatDate(dateStr)}</strong>
+                        </p>
+                        <p style="color: #388e3c; font-weight: bold;">
+                            ✅ Earliest available date: <strong>${dateValidation.formattedNextDate}</strong>
+                        </p>
+                        <button onclick="closeModal(); updateCalendarDay('${dateValidation.nextAvailableDate}');" 
+                                style="margin-top: 15px; padding: 10px 20px; background: #8d6e63; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            Select Earliest Available Date
+                        </button>
+                    </div>`);
+                return;
+            }
+            
             const dayElement = document.querySelector(`[data-date="${dateStr}"]`);
             const bookedTimes = JSON.parse(dayElement.getAttribute('data-booked') || '[]');
             const availableSlots = JSON.parse(dayElement.getAttribute('data-available') || '[]');
@@ -922,6 +981,37 @@ try {
                 month: 'long', 
                 day: 'numeric' 
             });
+        }
+        
+        // Updated updateCalendarDay function with validation
+        function updateCalendarDay(dateStr) {
+            const dateValidation = validateSelectedDate(dateStr);
+            
+            if (!dateValidation.isValid) {
+                showModal('Date Not Available', 
+                    `<div style="text-align: center;">
+                        <p style="color: #f36c6c; font-weight: bold; font-size: 1.1rem;">
+                            ❌ Booking must be made at least 2 weeks in advance.
+                        </p>
+                        <p style="margin: 15px 0; color: #5d4037;">
+                            You selected: <strong>${formatDate(dateStr)}</strong>
+                        </p>
+                        <p style="color: #388e3c; font-weight: bold;">
+                            ✅ Earliest available date: <strong>${dateValidation.formattedNextDate}</strong>
+                        </p>
+                        <button onclick="closeModal(); updateCalendarDay('${dateValidation.nextAvailableDate}');" 
+                                style="margin-top: 15px; padding: 10px 20px; background: #8d6e63; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            Select Earliest Available Date
+                        </button>
+                    </div>`);
+                return;
+            }
+            
+            document.getElementById('event_date').value = dateStr;
+            if (!document.getElementById('event_time').value) {
+                document.getElementById('event_time').value = '09:00';
+            }
+            updateTimeRange();
         }
         
         function updateForm() {
@@ -1062,14 +1152,6 @@ try {
             updateTotalCost();
         }
         
-        function updateCalendarDay(dateStr) {
-            document.getElementById('event_date').value = dateStr;
-            if (!document.getElementById('event_time').value) {
-                document.getElementById('event_time').value = '09:00';
-            }
-            updateTimeRange();
-        }
-        
         function updateTimeRange() {
             const timeInput = document.getElementById('event_time');
             const durationSelect = document.getElementById('event_duration');
@@ -1111,6 +1193,13 @@ try {
                 return;
             }
             
+            // Validate date on form submission
+            const dateValidation = validateSelectedDate(date);
+            if (!dateValidation.isValid) {
+                alert(`Booking must be made at least 2 weeks in advance. The earliest available date is ${dateValidation.formattedNextDate}.`);
+                return;
+            }
+            
             // Clear catering flag
             document.getElementById('proceed_to_catering').value = '0';
             
@@ -1128,6 +1217,13 @@ try {
             
             if (!eventType || !date || !time || !duration || !attendees || !address) {
                 alert('Please fill in all required fields before proceeding to catering menu.');
+                return;
+            }
+            
+            // Validate date on form submission
+            const dateValidation = validateSelectedDate(date);
+            if (!dateValidation.isValid) {
+                alert(`Booking must be made at least 2 weeks in advance. The earliest available date is ${dateValidation.formattedNextDate}.`);
                 return;
             }
             
@@ -1251,8 +1347,8 @@ try {
                 </div>
                 
                 <div class="form-group">
-                    <label for="address">Address *</label>
-                    <input type="text" name="btaddress" id="btaddress" class="form-control" required>
+                    <label for="address">Alternative Number *</label>
+                    <input type="number" name="btaddress" id="btaddress" class="form-control" required>
                 </div>
                 
                 <!-- Event Details -->
@@ -1274,7 +1370,7 @@ try {
                 <div class="form-group">
                     <label for="event_date">Event Date *</label>
                     <input type="date" name="event_date" id="event_date" class="form-control" 
-                           min="<?php echo date('Y-m-d'); ?>" onchange="updateTimeRange()" required>
+                           min="<?php echo date('Y-m-d', strtotime('+2 weeks')); ?>" onchange="updateTimeRange()" required>
                 </div>
                 
                 <div class="form-group">
@@ -1318,6 +1414,9 @@ try {
                     </span>
                     <button class="calendar-arrow" onclick="saveFormData(); loadCalendar(<?php echo $month == 12 ? $year + 1 : $year; ?>, <?php echo $month == 12 ? 1 : $month + 1; ?>)">&#8594;</button>
                 </div>
+                <p style="text-align: center; color: #8d6e63; font-size: 0.9rem; margin: 5px 0 15px 0;">
+                    ⚠️ Bookings must be made at least 2 weeks in advance
+                </p>
                 
                 <table class="calendar-table">
                     <tr>

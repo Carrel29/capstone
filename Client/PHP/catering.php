@@ -9,14 +9,25 @@ if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
     exit();
 }
 
-// Get the current booking ID from session
-if (!isset($_SESSION['current_booking_id'])) {
-    // If no current booking, redirect to booking form
-    header("Location: booking-form.php");
+// Get the current booking ID from either GET parameter (from cart) or session (from booking form)
+if (isset($_GET['booking_id'])) {
+    // Coming from cart - use GET parameter
+    $booking_id = $_GET['booking_id'];
+    $_SESSION['current_booking_id'] = $booking_id; // Store in session for future use
+} elseif (isset($_SESSION['current_booking_id'])) {
+    // Coming from booking form - use session
+    $booking_id = $_SESSION['current_booking_id'];
+} else {
+    // If no booking ID provided, redirect to appropriate page
+    if (isset($_SESSION['user_id'])) {
+        // User is logged in but no booking, redirect to cart
+        header("Location: user_cart.php");
+    } else {
+        // Not logged in, redirect to booking form
+        header("Location: booking-form.php");
+    }
     exit();
 }
-
-$booking_id = $_SESSION['current_booking_id'];
 
 // Verify the booking exists and belongs to the user
 $booking_stmt = $pdo->prepare("SELECT id, btevent, btschedule FROM bookings WHERE id = ? AND btuser_id = ? AND status = 'Pending'");
@@ -209,76 +220,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (isset($_POST['confirm_order'])) {
-        try {
-            // Update catering order status to confirmed
-            if (isset($_SESSION['catering_order_id'])) {
-                $stmt = $pdo->prepare("UPDATE catering_orders SET status = 'confirmed' WHERE id = ?");
-                $stmt->execute([$_SESSION['catering_order_id']]);
-                
-                // Save selected dishes to database
-                foreach ($_SESSION['selected_dishes'] as $dish_id) {
-                    $stmt = $pdo->prepare("INSERT INTO catering_order_dishes (catering_order_id, dish_id) VALUES (?, ?)");
-                    $stmt->execute([$_SESSION['catering_order_id'], $dish_id]);
-                }
-                
-                // Save selected addons to database
-                foreach ($_SESSION['selected_addons'] as $addon_id) {
-                    $stmt = $pdo->prepare("INSERT INTO catering_order_addons (catering_order_id, addon_id) VALUES (?, ?)");
-                    $stmt->execute([$_SESSION['catering_order_id'], $addon_id]);
-                }
-                
-                // Calculate catering total
-                $catering_total = 0;
-                if (isset($_SESSION['selected_package'])) {
-                    foreach ($catering_packages as $package) {
-                        if ($package['id'] == $_SESSION['selected_package']) {
-                            $catering_total += $package['base_price'];
-                            break;
-                        }
-                    }
-                }
-                
-                foreach ($_SESSION['selected_addons'] as $addon_id) {
-                    foreach ($catering_addons as $addon) {
-                        if ($addon['id'] == $addon_id) {
-                            $catering_total += $addon['price'];
-                            break;
-                        }
-                    }
-                }
-                
-
-    // Save selected dishes if submitted
-if (isset($_POST['dishes']) && is_array($_POST['dishes'])) {
-    $_SESSION['selected_dishes'] = $_POST['dishes'];
-}
-
-// Save selected addons if submitted
-if (isset($_POST['addons']) && is_array($_POST['addons'])) {
-    $_SESSION['selected_addons'] = $_POST['addons'];
-}
-
-
-                // Store catering info in session for payment page
-                $_SESSION['catering_info'] = [
-                    'order_id' => $_SESSION['catering_order_id'],
-                    'total' => $catering_total,
-                    'package_id' => $_SESSION['selected_package'],
-                    'dishes' => $_SESSION['selected_dishes'],
-                    'addons' => $_SESSION['selected_addons']
-                ];
-                
-                $_SESSION['success_message'] = "Catering order confirmed! Proceeding to payment.";
+    try {
+        // Update catering order status to confirmed
+        if (isset($_SESSION['catering_order_id'])) {
+            $stmt = $pdo->prepare("UPDATE catering_orders SET status = 'confirmed' WHERE id = ?");
+            $stmt->execute([$_SESSION['catering_order_id']]);
+            
+            // Save selected dishes to database
+            foreach ($_SESSION['selected_dishes'] as $dish_id) {
+                $stmt = $pdo->prepare("INSERT INTO catering_order_dishes (catering_order_id, dish_id) VALUES (?, ?)");
+                $stmt->execute([$_SESSION['catering_order_id'], $dish_id]);
             }
             
-            // Redirect to payment page
-            header("Location: payment.php?booking_id=" . $booking_id);
-            exit();
+            // Save selected addons to database
+            foreach ($_SESSION['selected_addons'] as $addon_id) {
+                $stmt = $pdo->prepare("INSERT INTO catering_order_addons (catering_order_id, addon_id) VALUES (?, ?)");
+                $stmt->execute([$_SESSION['catering_order_id'], $addon_id]);
+            }
             
-        } catch (Exception $e) {
-            $_SESSION['error_message'] = "Error confirming order: " . $e->getMessage();
+            // Calculate catering total
+            $catering_total = 0;
+            if (isset($_SESSION['selected_package'])) {
+                foreach ($catering_packages as $package) {
+                    if ($package['id'] == $_SESSION['selected_package']) {
+                        $catering_total += $package['base_price'];
+                        break;
+                    }
+                }
+            }
+            
+            foreach ($_SESSION['selected_addons'] as $addon_id) {
+                foreach ($catering_addons as $addon) {
+                    if ($addon['id'] == $addon_id) {
+                        $catering_total += $addon['price'];
+                        break;
+                    }
+                }
+            }
+
+            // Save selected dishes if submitted
+            if (isset($_POST['dishes']) && is_array($_POST['dishes'])) {
+                $_SESSION['selected_dishes'] = $_POST['dishes'];
+            }
+
+            // Save selected addons if submitted
+            if (isset($_POST['addons']) && is_array($_POST['addons'])) {
+                $_SESSION['selected_addons'] = $_POST['addons'];
+            }
+
+            // Store catering info in session for payment page
+            $_SESSION['catering_info'] = [
+                'order_id' => $_SESSION['catering_order_id'],
+                'total' => $catering_total,
+                'package_id' => $_SESSION['selected_package'],
+                'dishes' => $_SESSION['selected_dishes'],
+                'addons' => $_SESSION['selected_addons']
+            ];
+            
+            $_SESSION['success_message'] = "Catering order confirmed! Proceeding to payment.";
         }
+        
+        // Redirect to payment page with booking ID
+        header("Location: payment.php?booking_id=" . $booking_id);
+        exit();
+        
+    } catch (Exception $e) {
+        $_SESSION['error_message'] = "Error confirming order: " . $e->getMessage();
     }
+}
     
     if (isset($_POST['skip_catering'])) {
         // Redirect to payment without catering

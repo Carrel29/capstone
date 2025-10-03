@@ -448,10 +448,70 @@ main {
 .card-section {
   display: flex;
   justify-content: space-evenly;
-  align-items: center;
+  align-items: stretch; /* Important: makes all cards same height */
   flex-wrap: wrap;
   margin: 10px 0;
   gap: 20px;
+}
+
+.card-section .card {
+  display: flex;
+  flex-direction: column;
+  width: 300px; /* Fixed width */
+  min-height: 500px; /* Minimum height to maintain consistency */
+  border: 1px solid #ddd; /* Optional: for visual consistency */
+  border-radius: 8px; /* Optional: for visual consistency */
+  overflow: hidden; /* Keeps images contained within card */
+  background: white; /* Ensures consistent background */
+}
+
+/* Force consistent image container */
+.card-section .card .image-container {
+  width: 100%;
+  height: 200px; /* Fixed height */
+  overflow: hidden; /* Hide any image overflow */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5; /* Fallback background */
+}
+
+.card-section .card .image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* This will crop and fill the space */
+  object-position: center;
+  display: block;
+}
+
+/* If you want to maintain aspect ratio but still have consistent container */
+.card-section .card .image-container.aspect-ratio img {
+  object-fit: contain; /* Shows full image without cropping */
+  background: #f5f5f5; /* Background for transparent/small images */
+}
+
+.card-section .card .card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+}
+
+.card-section .card .card-content h3 {
+  margin: 0 0 10px 0;
+  font-size: 1.2em;
+}
+
+.card-section .card .card-content ul {
+  flex: 1;
+  margin: 0 0 10px 0;
+  padding-left: 20px;
+}
+
+.card-section .card .card-content .price {
+  margin: 0;
+  font-weight: bold;
+  color: #333;
 }
 
 .w-28-em {

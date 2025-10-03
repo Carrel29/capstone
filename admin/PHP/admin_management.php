@@ -22,6 +22,182 @@ try {
     die("Database Connection Failed: " . $e->getMessage());
 }
 
+// Create services content table for website services
+$pdo->exec("
+    CREATE TABLE IF NOT EXISTS services_content (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        service_name VARCHAR(100) NOT NULL,
+        description TEXT,
+        image_path VARCHAR(500),
+        price_info VARCHAR(200),
+        features TEXT,
+        status ENUM('active', 'archived') DEFAULT 'active',
+        sort_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+");
+
+// Insert default services if not exists
+$checkServices = $pdo->query("SELECT COUNT(*) FROM services_content")->fetchColumn();
+if ($checkServices == 0) {
+    $pdo->exec("INSERT INTO services_content (service_name, description, image_path, price_info, features, sort_order) VALUES 
+        ('Wedding', 'Perfect wedding venue with complete amenities', '../Img/Wedding.png', '₱50,000 (50 pax, ₱900 per head excess)', 'Venue rental for 8 hours|Event Coordination & Setup|Lights (2x)|Speakers (4x)|Tables & Chairs with linens|Backdrop & stage decor|Basic catering for 50 pax', 1),
+        ('Birthday Party', 'Fun and festive birthday celebrations', '../Img/bday.png', '₱25,000 (30 pax, ₱500 per head excess)', 'Themed backdrop & balloons|Lights (2x)|Speakers (2x)|Tables & chairs with covers|Basic catering for 30 pax', 2),
+        ('Corporate Event', 'Professional setting for business events', '../Img/Corporate.png', '₱40,000 (100 pax, ₱700 per head excess)', 'Professional stage & backdrop|Projector & screen|Lights (4x)|Speakers (4x)|Tables & chairs|Basic catering for 100 pax', 3),
+        ('Christening', 'Joyful christening celebrations', '../Img/Christening.png', '₱20,000 (30 pax, ₱400 per head excess)', 'Simple backdrop & floral decor|Lights (2x)|Speakers (2x)|Tables & chairs with linens|Basic catering for 30 pax', 4),
+        ('Debut', 'Memorable debut celebrations', '../Img/18th.png', '₱35,000 (50 pax, ₱800 per head excess)', 'Themed stage & backdrop|Lights (3x)|Speakers (3x)|Tables & chairs with covers|Basic catering for 50 pax', 5)
+    ");
+}
+
+// Helper function to convert image paths for admin panel
+function getAdminImagePath($image_path) {
+    if (empty($image_path)) {
+        return $image_path;
+    }
+    
+    // If path starts with ../Img/, convert to admin accessible path
+    if (strpos($image_path, '../Img/') === 0) {
+        return '../client/Img/' . substr($image_path, 7);
+    }
+    
+    // If path starts with Img/, convert to admin accessible path
+    if (strpos($image_path, 'Img/') === 0) {
+        return '../client/Img/' . substr($image_path, 4);
+    }
+    
+    return $image_path;
+}
+
+
+// Handle file upload - Robust flexible approach
+function handleFileUpload($file, $service_name) {
+    if ($file['error'] === UPLOAD_ERR_OK) {
+        // Multiple path resolution strategies
+        $possiblePaths = [
+            dirname(dirname(__DIR__)) . '/client/Img/', // Project root approach
+            __DIR__ . '/../../client/Img/', // Relative from admin/php
+            $_SERVER['DOCUMENT_ROOT'] . '/' . basename(dirname(dirname(__DIR__))) . '/client/Img/' // Document root approach
+        ];
+        
+        $uploadDir = null;
+        foreach ($possiblePaths as $path) {
+            if (is_dir(dirname($path))) {
+                $uploadDir = $path;
+                break;
+            }
+        }
+        
+        // Fallback to relative path if all else fails
+        if (!$uploadDir) {
+            $uploadDir = __DIR__ . '/../../client/Img/';
+        }
+        
+        // Create directory if it doesn't exist
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        // Generate unique filename
+        $fileExtension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $safeServiceName = preg_replace('/[^a-zA-Z0-9]/', '_', $service_name);
+        $filename = $safeServiceName . '_' . time() . '.' . $fileExtension;
+        $uploadPath = $uploadDir . $filename;
+        
+        // Move uploaded file
+        if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
+            // Return path that index.php can use
+            return '../Img/' . $filename;
+        }
+    }
+    return null;
+}
+
+// Handle services content management
+if (isset($_POST['add_service_content'])) {
+    try {
+        $image_path = '';
+        
+        // Handle file upload
+        if (isset($_FILES['service_image']) && $_FILES['service_image']['error'] === UPLOAD_ERR_OK) {
+            $image_path = handleFileUpload($_FILES['service_image'], $_POST['service_name']);
+        }
+        
+        // If no file uploaded but URL is provided, use URL
+        if (empty($image_path) && !empty($_POST['service_image_url'])) {
+            $image_path = $_POST['service_image_url'];
+        }
+        
+        $features = implode('|', array_filter($_POST['features']));
+        $stmt = $pdo->prepare("INSERT INTO services_content (service_name, description, image_path, price_info, features, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $_POST['service_name'],
+            $_POST['service_description'],
+            $image_path,
+            $_POST['price_info'],
+            $features,
+            $_POST['sort_order']
+        ]);
+        $message = "Service added successfully!";
+    } catch (Exception $e) {
+        $error = "Error adding service: " . $e->getMessage();
+    }
+}
+
+if (isset($_POST['update_service_content'])) {
+    try {
+        $image_path = $_POST['current_image_path'];
+        
+        // Handle file upload
+        if (isset($_FILES['service_image']) && $_FILES['service_image']['error'] === UPLOAD_ERR_OK) {
+            $new_image_path = handleFileUpload($_FILES['service_image'], $_POST['service_name']);
+            if ($new_image_path) {
+                $image_path = $new_image_path;
+            }
+        }
+        
+        // If no file uploaded but URL is provided, use URL
+        if (empty($image_path) && !empty($_POST['service_image_url'])) {
+            $image_path = $_POST['service_image_url'];
+        }
+        
+        $features = implode('|', array_filter($_POST['features']));
+        $stmt = $pdo->prepare("UPDATE services_content SET service_name = ?, description = ?, image_path = ?, price_info = ?, features = ?, sort_order = ? WHERE id = ?");
+        $stmt->execute([
+            $_POST['service_name'],
+            $_POST['service_description'],
+            $image_path,
+            $_POST['price_info'],
+            $features,
+            $_POST['sort_order'],
+            $_POST['service_id']
+        ]);
+        $message = "Service updated successfully!";
+    } catch (Exception $e) {
+        $error = "Error updating service: " . $e->getMessage();
+    }
+}
+
+if (isset($_GET['archive_service_content'])) {
+    try {
+        $stmt = $pdo->prepare("UPDATE services_content SET status = 'archived' WHERE id = ?");
+        $stmt->execute([$_GET['archive_service_content']]);
+        $message = "Service archived successfully!";
+    } catch (Exception $e) {
+        $error = "Error archiving service: " . $e->getMessage();
+    }
+}
+
+if (isset($_GET['restore_service_content'])) {
+    try {
+        $stmt = $pdo->prepare("UPDATE services_content SET status = 'active' WHERE id = ?");
+        $stmt->execute([$_GET['restore_service_content']]);
+        $message = "Service restored successfully!";
+    } catch (Exception $e) {
+        $error = "Error restoring service: " . $e->getMessage();
+    }
+}
+
 // Create archive tables if they don't exist
 $pdo->exec("
     CREATE TABLE IF NOT EXISTS archived_packages (
@@ -154,73 +330,7 @@ if ($checkDishes == 0) {
         ('Menudo', 'Pork', 'Traditional Filipino pork stew with vegetables', 0),
         ('Pork Tonkatsu', 'Pork', 'Japanese-style breaded and fried pork cutlet', 0),
         ('Crispy Pork Kare Kare', 'Pork', 'Crispy pork with peanut sauce and vegetables', 0),
-        ('Oriental Pork Special', 'Pork', 'Asian-inspired pork dish with special sauce', 0),
-        
-        -- Beef Dishes
-        ('Stir Fry Beef Broccoli', 'Beef', 'Tender beef with fresh broccoli in savory sauce', 0),
-        ('Special Beef Morcon', 'Beef', 'Filipino beef roll with savory filling', 0),
-        ('Special Caldereta', 'Beef', 'Spicy beef stew with tomato sauce and vegetables', 0),
-        ('Beef in Mushroom Sauce', 'Beef', 'Tender beef slices in creamy mushroom sauce', 0),
-        
-        -- Chicken Dishes
-        ('Cordon Bleu with Garlic Sauce', 'Chicken', 'Breaded chicken stuffed with ham and cheese', 0),
-        ('Buffalo Wings with Veg Sticks & Onion Dip', 'Chicken', 'Spicy chicken wings with vegetable sticks and dip', 0),
-        ('Classic Fried Chicken with Gravy', 'Chicken', 'Crispy fried chicken with creamy gravy', 0),
-        ('Korean Style Fried Chicken', 'Chicken', 'Crispy chicken with sweet and spicy Korean sauce', 0),
-        ('Chicken Fingers with Honey Mustard Sauce', 'Chicken', 'Breaded chicken strips with honey mustard dip', 0),
-        ('Creamy Chicken Pastel', 'Chicken', 'Creamy chicken pot pie filling', 0),
-        
-        -- Fish Dishes
-        ('Seared Fish Fillet in Lemon Beurre Blanc Sauce', 'Fish', 'Pan-seared fish with lemon butter sauce', 0),
-        ('Breaded Fish Fillet with Creamy Sauce', 'Fish', 'Crispy breaded fish with creamy dressing', 0),
-        ('Fish Tempura with Honey Mustard Cream Sauce', 'Fish', 'Lightly battered fish with special sauce', 0),
-        ('Beer-Battered Fish Fingers with Honey Mustard Sauce', 'Fish', 'Crispy beer-battered fish with dipping sauce', 0),
-        ('Shrimp in Creamy Garlic Parmesan Sauce', 'Fish', 'Shrimp in rich garlic parmesan cream sauce', 0),
-        ('Shrimp Gambas', 'Fish', 'Spanish-style garlic shrimp', 0),
-        ('Relyenong Bangus', 'Fish', 'Stuffed milkfish, a Filipino delicacy', 0),
-        ('Steamed Fish Fillet with Sauce or Mayo', 'Fish', 'Healthy steamed fish with choice of sauce (+₱50/head)', 0),
-        
-        -- Vegetable Dishes
-        ('Buttered Mixed Vegetables with Quail Eggs', 'Vegetables', 'Fresh vegetables in butter sauce with quail eggs', 1),
-        ('Herbed Garlic Potatoes', 'Vegetables', 'Roasted potatoes with herbs and garlic', 0),
-        ('Lumpiang Sariwa with Special Peanut Sauce', 'Vegetables', 'Fresh spring rolls with peanut sauce', 0),
-        ('Herb-Buttered Glazed Vegetables', 'Vegetables', 'Seasonal vegetables with herb butter glaze', 0),
-        ('French Steak Fries with Sriracha Sauce', 'Vegetables', 'Thick-cut fries with spicy sriracha sauce', 0),
-        ('Oven-Baked Cheesy Vegetables', 'Vegetables', 'Mixed vegetables baked with cheese topping', 0),
-        
-        -- Pasta Dishes
-        ('100% Beef Spaghetti with Meatballs', 'Pasta', 'Classic spaghetti with beef meatballs', 1),
-        ('Kids Style Double Cheese Spaghetti', 'Pasta', 'Cheesy spaghetti that kids love', 0),
-        ('Fettuccini Alfredo', 'Pasta', 'Creamy fettuccini with parmesan sauce', 0),
-        ('Creamy Bacon Carbonara', 'Pasta', 'Classic carbonara with bacon and cream sauce', 0),
-        ('Baked Beef Lasagna', 'Pasta', 'Layered pasta with beef and cheese', 0),
-        ('Cheesy Baked Mac', 'Pasta', 'Baked macaroni with three cheeses', 0),
-        ('Vegetarian Pasta with Olives & Tomato Herbs', 'Pasta', 'Healthy pasta with olives and fresh herbs', 0),
-        ('Oriental Pasta', 'Pasta', 'Asian-inspired pasta dish', 0),
-        
-        -- Desserts
-        ('Buko Pandan', 'Dessert', 'Filipino dessert with coconut and pandan', 1),
-        ('Buko Salad', 'Dessert', 'Young coconut salad with fruits and cream', 0),
-        ('Fruit Salad', 'Dessert', 'Mixed fruits in creamy dressing', 0),
-        ('Leche Flan', 'Dessert', 'Caramel custard dessert', 0),
-        ('Macapuno', 'Dessert', 'Sweet coconut sport dessert', 0),
-        ('Mango Sago', 'Dessert', 'Refreshing mango and sago pudding', 0),
-        
-        -- Juice Flavors
-        ('Cucumber Lemonade', 'Juice', 'Refreshing cucumber-infused lemonade', 1),
-        ('Blue Lemonade', 'Juice', 'Vibrant blue lemonade drink', 0),
-        ('House Blend Iced Tea', 'Juice', 'Specialty iced tea blend', 0),
-        ('Red Iced Tea', 'Juice', 'Fruity red iced tea', 0),
-        
-        -- Soup Options
-        ('Pumpkin Soup with Bacon Bits', 'Soup', 'Creamy pumpkin soup with crispy bacon', 0),
-        ('Cream of Mushroom Soup', 'Soup', 'Classic creamy mushroom soup', 0),
-        ('Crab & Corn Soup', 'Soup', 'Rich crab and sweet corn soup', 0),
-        
-        -- Appetizers
-        ('Pica-Pica Crackers', 'Appetizer', 'Assorted crackers and bites', 0),
-        ('Cornicks', 'Appetizer', 'Crunchy corn snacks', 0),
-        ('Nuts', 'Appetizer', 'Assorted roasted nuts', 0)");
+        ('Oriental Pork Special', 'Pork', 'Asian-inspired pork dish with special sauce', 0)");
 }
 
 // Insert sample catering addons if they don't exist
@@ -229,10 +339,7 @@ if ($checkAddons == 0) {
     $pdo->exec("INSERT INTO catering_addons (name, price, description) VALUES
         ('Mini Dessert Bar + Organic Salad Buffet', 9000.00, 'Delicious mini desserts and fresh organic salad bar'),
         ('Soup Option', 40.00, 'Per person soup addition'),
-        ('Appetizer Option', 15.00, 'Per person appetizer addition'),
-        ('Extra Dessert Selection', 3000.00, 'Additional dessert option'),
-        ('Extra Juice Selection', 2000.00, 'Additional juice flavor'),
-        ('Extra Dish', 5000.00, 'Additional main dish selection')");
+        ('Appetizer Option', 15.00, 'Per person appetizer addition')");
 }
 
 // Handle form submissions
@@ -444,7 +551,7 @@ if (isset($_POST['update_package'])) {
     }
 }
 
-// Service Management
+// Service Management (old services)
 if (isset($_POST['add_service'])) {
     try {
         $stmt = $pdo->prepare("INSERT INTO service (name, price) VALUES (?, ?)");
@@ -790,6 +897,10 @@ $archived_catering_packages = $pdo->query("SELECT * FROM archived_catering_packa
 $archived_catering_dishes = $pdo->query("SELECT * FROM archived_catering_dishes ORDER BY archived_at DESC")->fetchAll();
 $archived_catering_addons = $pdo->query("SELECT * FROM archived_catering_addons ORDER BY archived_at DESC")->fetchAll();
 
+// Fetch services content data
+$active_services = $pdo->query("SELECT * FROM services_content WHERE status = 'active' ORDER BY sort_order")->fetchAll();
+$archived_services_content = $pdo->query("SELECT * FROM services_content WHERE status = 'archived' ORDER BY sort_order")->fetchAll();
+
 // Get items for editing
 $edit_package = null;
 if (isset($_GET['edit_package'])) {
@@ -833,8 +944,18 @@ if (isset($_GET['edit_catering_addon'])) {
     $edit_catering_addon = $stmt->fetch();
 }
 
+// Get service for editing
+$edit_service_content = null;
+if (isset($_GET['edit_service_content'])) {
+    $stmt = $pdo->prepare("SELECT * FROM services_content WHERE id = ?");
+    $stmt->execute([$_GET['edit_service_content']]);
+    $edit_service_content = $stmt->fetch();
+}
+
 // Determine active tab based on what we're editing
-$active_tab = 'packages';
+$active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'packages';
+if (isset($_GET['edit_service_content'])) $active_tab = 'services-content';
+if (isset($_GET['edit_package'])) $active_tab = 'packages';
 if (isset($_GET['edit_service'])) $active_tab = 'services';
 if (isset($_GET['edit_equipment'])) $active_tab = 'equipment';
 if (isset($_GET['edit_catering_package'])) $active_tab = 'catering-packages';
@@ -1087,6 +1208,68 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         textarea.form-control {
             min-height: 100px;
             resize: vertical;
+        }
+        
+        /* File Upload Styles */
+        .file-upload-container {
+            border: 2px dashed var(--border);
+            border-radius: 5px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+            background: #f9f9f9;
+        }
+        
+        .file-upload-label {
+            cursor: pointer;
+            display: block;
+        }
+        
+        .file-upload-icon {
+            font-size: 48px;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+        
+        .file-upload-text {
+            color: var(--text-dark);
+            margin-bottom: 10px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .image-preview {
+            max-width: 200px;
+            max-height: 150px;
+            margin-top: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .current-image {
+            max-width: 200px;
+            max-height: 150px;
+            margin-top: 10px;
+            border-radius: 5px;
+            border: 2px solid var(--border);
+        }
+        
+        /* Features Container */
+        .features-container {
+            margin-bottom: 15px;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .feature-item input {
+            flex: 1;
+            margin-right: 8px;
         }
         
         /* Buttons */
@@ -1342,24 +1525,24 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
     <div class="dashboard-container">
         <nav class="sidebar">
             <div class="logo">
-        <h2>Admin Dashboard</h2>
-    </div>
-    <ul class="nav-menu">
-        <li><a href="dashboard.php">Dashboard</a></li>
-        <li><a href="add_user.php">Admin Management</a></li>
-        <li><a href="user_management.php">User Management</a></li>
-        <li><a href="calendar.php">Calendar</a></li>
-        <li><a href="Inventory.php">Inventory</a></li>
-        <li><a href="admin_management.php">Edit</a></li>
-        <li><a href="Index.php?logout=true">Logout</a></li>
-    </ul>
-</nav>
+                <h2>Admin Dashboard</h2>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="add_user.php">Admin Management</a></li>
+                <li><a href="user_management.php">User Management</a></li>
+                <li><a href="calendar.php">Calendar</a></li>
+                <li><a href="Inventory.php">Inventory</a></li>
+                <li><a href="admin_management.php">Edit</a></li>
+                <li><a href="Index.php?logout=true">Logout</a></li>
+            </ul>
+        </nav>
 
         <main class="main-content">
             <div class="management-container">
                 <div class="management-header">
                     <h1><i class="fas fa-cogs"></i> BTONE Management System</h1>
-                    <p>Manage Packages, Services, Equipment, and Catering</p>
+                    <p>Manage Website Services, Packages, Equipment, and Catering</p>
                 </div>
 
                 <?php if ($message): ?>
@@ -1376,6 +1559,10 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
 
                 <div class="tab-container">
                     <div class="tab-buttons">
+                        <!-- SERVICES CONTENT TAB BUTTON -->
+                        <button class="tab-btn <?php echo $active_tab == 'services-content' ? 'active' : ''; ?>" onclick="showTab('services-content')">
+                            <i class="fas fa-concierge-bell"></i> Website Services
+                        </button>
                         <button class="tab-btn <?php echo $active_tab == 'packages' ? 'active' : ''; ?>" onclick="showTab('packages')">
                             <i class="fas fa-box"></i> Packages
                         </button>
@@ -1399,7 +1586,188 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                         </button>
                     </div>
 
-                    <!-- Packages Tab -->
+                    <!-- SERVICES CONTENT TAB -->
+                    <div id="services-content-tab" class="tab-content <?php echo $active_tab == 'services-content' ? 'active' : ''; ?>">
+                        <!-- Services Management -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_service_content ? 'Edit Service' : 'Add New Service'; ?></h3>
+                            </div>
+                            <div class="card-body">
+                                <form method="POST" enctype="multipart/form-data">
+                                    <?php if ($edit_service_content): ?>
+                                        <input type="hidden" name="service_id" value="<?php echo $edit_service_content['id']; ?>">
+                                        <input type="hidden" name="current_image_path" value="<?php echo htmlspecialchars($edit_service_content['image_path']); ?>">
+                                    <?php endif; ?>
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label>Service Name</label>
+                                            <input type="text" name="service_name" class="form-control" 
+                                                value="<?php echo $edit_service_content ? htmlspecialchars($edit_service_content['service_name']) : ''; ?>" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Price Information</label>
+                                            <input type="text" name="price_info" class="form-control" 
+                                                value="<?php echo $edit_service_content ? htmlspecialchars($edit_service_content['price_info']) : ''; ?>" 
+                                                placeholder="e.g., ₱50,000 (50 pax, ₱900 per head excess)" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Sort Order</label>
+                                            <input type="number" name="sort_order" class="form-control" 
+                                                value="<?php echo $edit_service_content ? $edit_service_content['sort_order'] : '0'; ?>">
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- File Upload Section -->
+                                    <div class="form-group">
+                                        <label>Service Image</label>
+                                        <div class="file-upload-container">
+                                            <label class="file-upload-label">
+                                                <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                                                <div class="file-upload-text">
+                                                    <strong>Click to upload an image</strong>
+                                                    <p>or drag and drop</p>
+                                                    <p>PNG, JPG, GIF up to 5MB</p>
+                                                </div>
+                                                <input type="file" name="service_image" class="file-input" accept="image/*" onchange="previewImage(this)">
+                                            </label>
+                                            <img id="imagePreview" class="image-preview" src="" alt="Image preview">
+                                            
+                                            <?php if ($edit_service_content && !empty($edit_service_content['image_path'])): ?>
+                                                <div class="current-image-container">
+                                                    <p><strong>...</strong></p>
+                                                    <img src="<?php echo htmlspecialchars($edit_service_content['image_path']); ?>" 
+                                                         class="current-image" 
+                                                         alt="Current service image"
+                                                         onerror="this.style.display='none'">
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                        
+                                        <!-- Fallback URL input -->
+                                        <div class="form-group" style="margin-top: 15px;">
+                                            <label>Or enter image URL (if not uploading file)</label>
+                                            <input type="text" name="service_image_url" class="form-control" 
+                                                value="<?php echo $edit_service_content ? htmlspecialchars($edit_service_content['image_path']) : ''; ?>" 
+                                                placeholder="Enter image URL if not uploading file">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Service Description</label>
+                                        <textarea name="service_description" class="form-control" rows="3"><?php echo $edit_service_content ? htmlspecialchars($edit_service_content['description']) : ''; ?></textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Features (one per line)</label>
+                                        <div class="features-container" id="featuresContainer">
+                                            <?php
+                                            if ($edit_service_content && !empty($edit_service_content['features'])) {
+                                                $features = explode('|', $edit_service_content['features']);
+                                                foreach ($features as $feature) {
+                                                    if (!empty(trim($feature))) {
+                                                        echo '<div class="feature-item">
+                                                            <input type="text" name="features[]" class="form-control" value="' . htmlspecialchars($feature) . '" required>
+                                                            <button type="button" class="btn btn-danger btn-sm" onclick="removeFeature(this)"><i class="fas fa-times"></i></button>
+                                                        </div>';
+                                                    }
+                                                }
+                                            } else {
+                                                echo '<div class="feature-item">
+                                                    <input type="text" name="features[]" class="form-control" placeholder="Enter a feature" required>
+                                                    <button type="button" class="btn btn-danger btn-sm" onclick="removeFeature(this)"><i class="fas fa-times"></i></button>
+                                                </div>';
+                                            }
+                                            ?>
+                                        </div>
+                                        <button type="button" class="btn btn-success btn-sm" onclick="addFeature()">
+                                            <i class="fas fa-plus"></i> Add Feature
+                                        </button>
+                                    </div>
+                                    <button type="submit" name="<?php echo $edit_service_content ? 'update_service_content' : 'add_service_content'; ?>" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> <?php echo $edit_service_content ? 'Update Service' : 'Add Service'; ?>
+                                    </button>
+                                    <?php if ($edit_service_content): ?>
+                                        <a href="?tab=services-content" class="btn btn-danger">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </a>
+                                    <?php endif; ?>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Active Services -->
+<div class="card">
+    <div class="card-header">
+        <h3><i class="fas fa-list"></i> Active Services</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Price Info</th>
+                        <th>Sort Order</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($active_services as $service): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($service['service_name']); ?></td>
+                        <td><?php echo htmlspecialchars($service['price_info']); ?></td>
+                        <td><?php echo $service['sort_order']; ?></td>
+                        <td>
+                            <a href="?edit_service_content=<?php echo $service['id']; ?>&tab=services-content" class="btn btn-warning btn-sm">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <a href="?archive_service_content=<?php echo $service['id']; ?>&tab=services-content" class="btn btn-danger btn-sm" onclick="return confirm('Archive this service?')">
+                                <i class="fas fa-archive"></i> Archive
+                            </a>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+                        <!-- Archived Services -->
+<div class="card">
+    <div class="card-header">
+        <h3><i class="fas fa-archive"></i> Archived Services</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Price Info</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($archived_services_content as $service): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($service['service_name']); ?></td>
+                        <td><?php echo htmlspecialchars($service['price_info']); ?></td>
+                        <td>
+                            <a href="?restore_service_content=<?php echo $service['id']; ?>&tab=services-content" class="btn btn-success btn-sm" onclick="return confirm('Restore this service?')">
+                                <i class="fas fa-undo"></i> Restore
+                            </a>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+                    </div>
+
+                    <!-- PACKAGES TAB -->
                     <div id="packages-tab" class="tab-content <?php echo $active_tab == 'packages' ? 'active' : ''; ?>">
                         <div class="card">
                             <div class="card-header">
@@ -1505,9 +1873,8 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                         </div>
                     </div>
 
-                    <!-- Services Tab -->
+                    <!-- SERVICES TAB (old services) -->
                     <div id="services-tab" class="tab-content <?php echo $active_tab == 'services' ? 'active' : ''; ?>">
-                        <!-- Services content remains the same as before -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_service ? 'Edit Service' : 'Add New Service'; ?></h3>
@@ -1577,9 +1944,8 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                         </div>
                     </div>
 
-                    <!-- Equipment Tab -->
+                    <!-- EQUIPMENT TAB -->
                     <div id="equipment-tab" class="tab-content <?php echo $active_tab == 'equipment' ? 'active' : ''; ?>">
-                        <!-- Equipment content remains the same as before -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_equipment ? 'Edit Equipment' : 'Add New Equipment'; ?></h3>
@@ -1687,9 +2053,8 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                         </div>
                     </div>
 
-                    <!-- Catering Packages Tab -->
+                    <!-- CATERING PACKAGES TAB -->
                     <div id="catering-packages-tab" class="tab-content <?php echo $active_tab == 'catering-packages' ? 'active' : ''; ?>">
-                        <!-- Catering packages content remains the same -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_catering_package ? 'Edit Catering Package' : 'Add New Catering Package'; ?></h3>
@@ -1777,9 +2142,8 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                         </div>
                     </div>
 
-                    <!-- Catering Dishes Tab -->
+                    <!-- CATERING DISHES TAB -->
                     <div id="catering-dishes-tab" class="tab-content <?php echo $active_tab == 'catering-dishes' ? 'active' : ''; ?>">
-                        <!-- Catering dishes content remains the same -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_catering_dish ? 'Edit Catering Dish' : 'Add New Catering Dish'; ?></h3>
@@ -1875,9 +2239,8 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                         </div>
                     </div>
 
-                    <!-- Catering Addons Tab -->
+                    <!-- CATERING ADDONS TAB -->
                     <div id="catering-addons-tab" class="tab-content <?php echo $active_tab == 'catering-addons' ? 'active' : ''; ?>">
-                        <!-- Catering addons content remains the same -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_catering_addon ? 'Edit Catering Addon' : 'Add New Catering Addon'; ?></h3>
@@ -1953,9 +2316,8 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                         </div>
                     </div>
 
-                    <!-- Archived Items Tab -->
+                    <!-- ARCHIVED ITEMS TAB -->
                     <div id="archived-tab" class="tab-content <?php echo $active_tab == 'archived' ? 'active' : ''; ?>">
-                        <!-- Archived items content remains the same -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-archive"></i> Archived Packages</h3>
@@ -2230,6 +2592,11 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
             
             // Activate selected button
             event.target.classList.add('active');
+            
+            // Update URL without reloading page
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tabName);
+            window.history.pushState({}, '', url);
         }
         
         function updateCategoryId(select) {
@@ -2245,6 +2612,48 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         
         function closeModal() {
             document.getElementById('archiveModal').style.display = 'none';
+        }
+        
+        // Feature management functions
+        function addFeature() {
+            const container = document.getElementById('featuresContainer');
+            const featureItem = document.createElement('div');
+            featureItem.className = 'feature-item';
+            featureItem.innerHTML = `
+                <input type="text" name="features[]" class="form-control" placeholder="Enter a feature" required>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeFeature(this)"><i class="fas fa-times"></i></button>
+            `;
+            container.appendChild(featureItem);
+        }
+
+        function removeFeature(button) {
+            const featureItem = button.parentElement;
+            if (document.querySelectorAll('.feature-item').length > 1) {
+                featureItem.remove();
+            } else {
+                // If it's the last feature, just clear it
+                featureItem.querySelector('input').value = '';
+            }
+        }
+        
+        // Image preview function
+        function previewImage(input) {
+            const preview = document.getElementById('imagePreview');
+            const file = input.files[0];
+            
+            if (file) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                }
+                
+                reader.readAsDataURL(file);
+            } else {
+                preview.style.display = 'none';
+                preview.src = '';
+            }
         }
         
         // Close modal if clicked outside
@@ -2264,6 +2673,13 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
             }
         });
         <?php endif; ?>
+
+        // Set active tab on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tab = urlParams.get('tab') || 'packages';
+            showTab(tab);
+        });
     </script>
 </body>
 </html>

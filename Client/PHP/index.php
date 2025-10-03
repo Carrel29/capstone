@@ -3,6 +3,80 @@ session_start();
 include_once "../includes/loginSession.php";
 include_once "../includes/userData.php";
 
+// Database Connection for dynamic services
+$host = 'localhost';
+$dbname = 'btonedatabase';
+$username = 'root';
+$password = '';
+
+// Initialize services content
+$services_content = null;
+
+try {
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_TIMEOUT, 5); // 5 second timeout
+    
+    // Fetch services from database with error handling
+    $stmt = $pdo->prepare("SELECT * FROM services_content WHERE status = 'active' ORDER BY sort_order");
+    $stmt->execute();
+    $services_content = $stmt->fetchAll();
+    
+} catch (PDOException $e) {
+    // Silently fail and use default services
+    error_log("Database connection failed: " . $e->getMessage());
+    $services_content = null;
+} catch (Exception $e) {
+    // Silently fail and use default services
+    error_log("Service query failed: " . $e->getMessage());
+    $services_content = null;
+}
+
+// Default services if database is not available
+$default_services = [
+    [
+        'service_name' => 'Wedding',
+        'image_path' => '../Img/Wedding.png',
+        'price_info' => '₱50,000 (50 pax, ₱900 per head excess)',
+        'features' => 'Venue rental for 8 hours|Event Coordination & Setup|Lights (2x)|Speakers (4x)|Tables & Chairs with linens|Backdrop & stage decor|Basic catering for 50 pax'
+    ],
+    [
+        'service_name' => 'Birthday Party',
+        'image_path' => '../Img/bday.png',
+        'price_info' => '₱25,000 (30 pax, ₱500 per head excess)',
+        'features' => 'Themed backdrop & balloons|Lights (2x)|Speakers (2x)|Tables & chairs with covers|Basic catering for 30 pax'
+    ],
+    [
+        'service_name' => 'Corporate Event',
+        'image_path' => '../Img/Corporate.png',
+        'price_info' => '₱40,000 (100 pax, ₱700 per head excess)',
+        'features' => 'Professional stage & backdrop|Projector & screen|Lights (4x)|Speakers (4x)|Tables & chairs|Basic catering for 100 pax'
+    ],
+    [
+        'service_name' => 'Christening',
+        'image_path' => '../Img/Christening.png',
+        'price_info' => '₱20,000 (30 pax, ₱400 per head excess)',
+        'features' => 'Simple backdrop & floral decor|Lights (2x)|Speakers (2x)|Tables & chairs with linens|Basic catering for 30 pax'
+    ],
+    [
+        'service_name' => 'Debut',
+        'image_path' => '../Img/18th.png',
+        'price_info' => '₱35,000 (50 pax, ₱800 per head excess)',
+        'features' => 'Themed stage & backdrop|Lights (3x)|Speakers (3x)|Tables & chairs with covers|Basic catering for 50 pax'
+    ]
+];
+
+// Use database services if available, otherwise use defaults
+if ($services_content && count($services_content) > 0) {
+    $services_to_display = $services_content;
+} else {
+    $services_to_display = $default_services;
+}
+
+// Initialize message variables to prevent undefined variable errors
+$message = isset($message) ? $message : '';
+$isSuccess = isset($isSuccess) ? $isSuccess : false;
+
 ?>
 
 <!DOCTYPE html>
@@ -17,6 +91,72 @@ include_once "../includes/userData.php";
     rel="stylesheet">
 
   <title>Home</title>
+
+  <style>
+.card-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 50px; /* Even more space between cards */
+  margin: 30px 0;
+  width: 100%;
+}
+
+.card-section .card {
+  width: 90%;
+  max-width: 900px;
+  border: 1px solid #ddd;
+  border-radius: 15px;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.card-section .card .image-container {
+  width: 100%;
+  height: 400px; /* Very tall image area */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+}
+
+.card-section .card .image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Fill the entire image area */
+}
+
+.card-section .card .card-content {
+  padding: 40px;
+}
+
+.card-section .card .card-content h3 {
+  font-size: 2.5em; /* Very large title */
+  margin: 0 0 25px 0;
+  color: #333;
+  text-align: center;
+}
+
+.card-section .card .card-content ul {
+  margin: 0 0 25px 0;
+  padding-left: 30px;
+  font-size: 1.2em;
+  line-height: 1.6;
+}
+
+.card-section .card .card-content ul li {
+  margin-bottom: 12px;
+}
+
+.card-section .card .card-content .price {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #2c5530;
+  text-align: center;
+  margin: 0;
+}
+  </style>
 </head>
 
 <body>
@@ -52,7 +192,7 @@ include_once "../includes/userData.php";
         <h2>Btone</h2>
         <p>
           Btone is your go-to spot for coffee, events, and live experiences. We offer a cozy café, venue rentals,
-          catering services, and professional audio & lighting for any occasion. Whether it’s a small gathering or a
+          catering services, and professional audio & lighting for any occasion. Whether it's a small gathering or a
           full concert, Btone brings your event to life.
         </p>
         <div class="btn-group-card flex-start">
@@ -68,88 +208,32 @@ include_once "../includes/userData.php";
         <h1 class="text-center">SERVICES</h1>
       </div>
     <div class="card-section">
-      <!-- Wedding -->
-      <div class="card"> 
-        <img src="../Img/Wedding.png" alt="Wedding"> 
-        <div class="card-content"> 
-          <h3>Wedding</h3> 
-            <ul> 
-              <li>Venue rental for 8 hours</li> 
-              <li>Event Coordination & Setup</li> 
-              <li>Lights (2x)</li> 
-              <li>Speakers (4x)</li> 
-              <li>Tables & Chairs with linens</li> 
-              <li>Backdrop & stage decor</li> 
-              <li>Basic catering for 50 pax</li> 
-            </ul> 
-            <p class="price">₱50,000 (50 pax, ₱900 per head excess)</p> </div> 
-          </div>
-      <!-- Birthday Party -->
-<div class="card">
-  <img src="../Img/bday.png" alt="Birthday Party">
-  <div class="card-content">
-    <h3>Birthday Party</h3>
-    <ul>
-      <li>Themed backdrop & balloons</li>
-      <li>Lights (2x)</li>
-      <li>Speakers (2x)</li>
-      <li>Tables & chairs with covers</li>
-      <li>Basic catering for 30 pax</li>
-    </ul>
-    <p class="price">₱25,000 (30 pax, ₱500 per head excess)</p>
-  </div>
+    <?php foreach ($services_to_display as $service): ?>
+        <div class="card"> 
+            <div class="image-container">
+                <img src="<?php echo htmlspecialchars($service['image_path']); ?>" 
+                     alt="<?php echo htmlspecialchars($service['service_name']); ?>"
+                     onerror="this.src='../Img/placeholder-image.jpg'"> 
+            </div>
+            <div class="card-content"> 
+                <h3><?php echo htmlspecialchars($service['service_name']); ?></h3> 
+                <ul> 
+                    <?php 
+                    $features = isset($service['features']) ? explode('|', $service['features']) : [];
+                    foreach ($features as $feature): 
+                        if (!empty(trim($feature))): 
+                    ?>
+                    <li><?php echo htmlspecialchars($feature); ?></li> 
+                    <?php 
+                        endif;
+                    endforeach; 
+                    ?>
+                </ul> 
+                <p class="price"><?php echo htmlspecialchars($service['price_info']); ?></p> 
+            </div> 
+        </div>
+    <?php endforeach; ?>
 </div>
-
-<!-- Corporate Event -->
-<div class="card">
-  <img src="../Img/Corporate.png" alt="Corporate Event">
-  <div class="card-content">
-    <h3>Corporate Event</h3>
-    <ul>
-      <li>Professional stage & backdrop</li>
-      <li>Projector & screen</li>
-      <li>Lights (4x)</li>
-      <li>Speakers (4x)</li>
-      <li>Tables & chairs</li>
-      <li>Basic catering for 100 pax</li>
-    </ul>
-    <p class="price">₱40,000 (100 pax, ₱700 per head excess)</p>
-  </div>
-</div>
-
-<!-- Christening -->
-<div class="card">
-  <img src="../Img/Christening.png" alt="Christening">
-  <div class="card-content">
-    <h3>Christening</h3>
-    <ul>
-      <li>Simple backdrop & floral decor</li>
-      <li>Lights (2x)</li>
-      <li>Speakers (2x)</li>
-      <li>Tables & chairs with linens</li>
-      <li>Basic catering for 30 pax</li>
-    </ul>
-    <p class="price">₱20,000 (30 pax, ₱400 per head excess)</p>
-  </div>
-</div>
-
-<!-- Debut -->
-<div class="card">
-  <img src="../Img/18th.png" alt="Debut">
-  <div class="card-content">
-    <h3>Debut</h3>
-    <ul>
-      <li>Themed stage & backdrop</li>
-      <li>Lights (3x)</li>
-      <li>Speakers (3x)</li>
-      <li>Tables & chairs with covers</li>
-      <li>Basic catering for 50 pax</li>
-    </ul>
-    <p class="price">₱35,000 (50 pax, ₱800 per head excess)</p>
-  </div>
-</div>
-
-    </div>
   </section>
     <section id="aboutus" class="about-section py-1 px-5-percent">
       <div class="section-header">
@@ -163,7 +247,7 @@ include_once "../includes/userData.php";
             Welcome to BTONE, your trusted destination for unforgettable events and exceptional service.
             We offer a convenient online booking system where you can easily reserve our event place and include our
             in-house catering services to complete your celebration. Whether it's a birthday, wedding, corporate
-            gathering, or any special occasion, we’re here to make it seamless and memorable.
+            gathering, or any special occasion, we're here to make it seamless and memorable.
           </p>
         </div>
         <div class="vission my-30">
@@ -211,20 +295,64 @@ include_once "../includes/userData.php";
   <script>
     // Pass PHP session variable to JavaScript
     const isLoggedIn = <?php echo isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] ? 'true' : 'false'; ?>;
-    const message = "<?php echo $message; ?>";
-    if (!isLoggedIn) {
-      toggleDropdown.classList.add('d-none');
+    
+    // Function to open login modal
+    function openLoginModal(event) {
+      event.preventDefault();
+      const modal = document.querySelector('.pop-up-modal');
+      if (modal) {
+        modal.classList.remove('d-none');
+      }
     }
+    
+    // Close modal functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const closeModal = document.querySelector('.close-modal');
+      const modal = document.querySelector('.pop-up-modal');
+      
+      if (closeModal && modal) {
+        closeModal.addEventListener('click', function() {
+          modal.classList.add('d-none');
+        });
+        
+        // Close modal when clicking outside
+        modal.addEventListener('click', function(e) {
+          if (e.target === modal) {
+            modal.classList.add('d-none');
+          }
+        });
+      }
+      
+      // Initialize dropdown functionality
+      const dropdown = document.querySelector('.dropdown');
+      if (dropdown && !isLoggedIn) {
+        dropdown.classList.add('d-none');
+      }
+    });
   </script>
+  
   <!-- toast start -->
-  <div class="toast d-none <?php echo $isSuccess ? 'bg-green' : 'bg-red'; ?>">
+  <?php if (!empty($message)): ?>
+  <div class="toast <?php echo $isSuccess ? 'bg-green' : 'bg-red'; ?>">
     <div class="toast-body">
-      <?php echo $message; ?>
+      <?php echo htmlspecialchars($message); ?>
     </div>
   </div>
-
+  
+  <script>
+    // Auto-hide toast after 5 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+      const toast = document.querySelector('.toast');
+      if (toast) {
+        setTimeout(function() {
+          toast.classList.add('d-none');
+        }, 5000);
+      }
+    });
+  </script>
+  <?php endif; ?>
   <!-- toast end -->
-  <script src="../JS/toast.js"></script>
+  
 </body>
 
 </html>

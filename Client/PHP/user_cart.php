@@ -498,21 +498,21 @@ try {
                         </div>
 
                         <div class="button-group">
-                            <form action="remove_booking.php" method="POST" style="margin: 0;">
-                                <input type="hidden" name="booking_id" value="<?php echo $item['id']; ?>">
-                                <button type="submit" class="btn btn-remove" onclick="return confirm('Are you sure you want to remove this booking?')">
-                                    <span class="btn-icon">🗑️</span>
-                                    Remove
-                                </button>
-                            </form>
-                            <form action="payment.php" method="GET" style="margin: 0;">
-                                <input type="hidden" name="booking_id" value="<?php echo $item['id']; ?>">
-                                <button type="submit" class="btn btn-checkout">
-                                    <span class="btn-icon">💳</span>
-                                    Proceed to Payment
-                                </button>
-                            </form>
-                        </div>
+    <form action="remove_booking.php" method="POST" style="margin: 0;">
+        <input type="hidden" name="booking_id" value="<?php echo $item['id']; ?>">
+        <button type="submit" class="btn btn-remove" onclick="return confirm('Are you sure you want to remove this booking?')">
+            <span class="btn-icon">🗑️</span>
+            Remove
+        </button>
+    </form>
+    <form action="catering.php" method="GET" style="margin: 0;">
+        <input type="hidden" name="booking_id" value="<?php echo $item['id']; ?>">
+        <button type="submit" class="btn btn-checkout">
+            <span class="btn-icon">🍽️</span>
+            Proceed to Catering
+        </button>
+    </form>
+</div>
                     </div>
                 <?php endforeach; ?>
                 

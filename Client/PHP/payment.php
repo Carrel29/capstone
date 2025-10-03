@@ -430,7 +430,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
                 <p><strong>Date:</strong> <?php echo date('F j, Y', strtotime($booking['btschedule'])); ?></p>
                 <p><strong>Time:</strong> <?php echo date('g:i A', strtotime($booking['btschedule'])); ?></p>
                 <p><strong>Attendees:</strong> <?php echo $booking['btattendees']; ?> people</p>
-                <p><strong>Address:</strong> <?php echo htmlspecialchars($booking['btaddress']); ?></p>
+                <p><strong>Alternative No.:</strong> <?php echo htmlspecialchars($booking['btaddress']); ?></p>
                 <p><strong>Booking Cost:</strong> ₱<?php echo number_format($booking['total_cost'], 2); ?></p>
             </div>
             
