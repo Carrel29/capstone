@@ -3,7 +3,6 @@ session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
     header("Location: login.php");
     exit();
@@ -19,6 +18,7 @@ try {
 
 // Get booking ID from URL or session
 $booking_id = $_GET['booking_id'] ?? $_SESSION['current_booking_id'] ?? null;
+$continue_payment = isset($_GET['continue_payment']);
 
 if (!$booking_id) {
     header("Location: user_cart.php");
@@ -39,6 +39,17 @@ try {
     die("Error fetching booking: " . $e->getMessage());
 }
 
+// Get total amount paid so far
+$amount_paid = 0;
+try {
+    $sales_stmt = $pdo->prepare("SELECT SUM(AmountPaid) as total_paid FROM sales WHERE booking_id = ?");
+    $sales_stmt->execute([$booking_id]);
+    $sales_data = $sales_stmt->fetch();
+    $amount_paid = $sales_data['total_paid'] ?? 0;
+} catch (Exception $e) {
+    // If sales record doesn't exist yet, amount_paid remains 0
+}
+
 // Check if catering is included
 $catering_total = 0;
 $catering_details = [];
@@ -50,7 +61,10 @@ if (isset($_SESSION['catering_info'])) {
 // Calculate total amount (booking + catering)
 $totalAmount = $booking['total_cost'] + $catering_total;
 
-$minimumPayment = $totalAmount * 0.2;
+// Calculate remaining balance and minimum payment
+$remaining_balance = $totalAmount - $amount_paid;
+$minimumPayment = $continue_payment ? max($remaining_balance * 0.2, 1) : ($totalAmount * 0.2);
+
 $error = '';
 
 // Handle payment submission
@@ -62,23 +76,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
 
     // Validate payment amount
     if ($paymentType === 'partial' && $paymentAmount < $minimumPayment) {
-        $error = "Partial payment must be at least 20% of the total amount (₱" . number_format($minimumPayment, 2) . ")";
-    } elseif ($paymentAmount > $totalAmount) {
-        $error = "Payment amount cannot exceed total amount of ₱" . number_format($totalAmount, 2);
+        $error = "Partial payment must be at least 20% of the remaining balance (₱" . number_format($minimumPayment, 2) . ")";
+    } elseif ($paymentAmount > $remaining_balance) {
+        $error = "Payment amount cannot exceed remaining balance of ₱" . number_format($remaining_balance, 2);
     } elseif (empty($referenceNumber)) {
         $error = "Please enter a valid GCash reference number";
     } else {
         try {
             $pdo->beginTransaction();
 
-            // Determine payment status
-            $paymentStatus = ($paymentType === 'full' || $paymentAmount >= $totalAmount) ? 'paid' : 'partial';
+            // Calculate new total paid
+            $new_amount_paid = $amount_paid + $paymentAmount;
+            
+            // Determine new payment status
+            $paymentStatus = ($new_amount_paid >= $totalAmount) ? 'paid' : 'partial';
 
             // Update booking payment status
             $stmt = $pdo->prepare("UPDATE bookings SET payment_status = ?, total_cost = ? WHERE id = ?");
             $stmt->execute([$paymentStatus, $totalAmount, $booking_id]);
 
-            // Insert into sales table
+            // Insert into sales table (new payment record)
             $stmt = $pdo->prepare("INSERT INTO sales 
                 (btuser_id, booking_id, GcashReferenceNo, TotalAmount, AmountPaid, Status, DateCreated)
                 VALUES (?, ?, ?, ?, ?, 1, NOW())");
@@ -87,23 +104,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
                 $_SESSION['user_id'],
                 $booking_id,
                 $referenceNumber,
-                $totalAmount,
-                $paymentAmount
+                $totalAmount, // Total cost of the booking
+                $paymentAmount // This payment amount
             ]);
 
-            // Update catering order status if exists
-            if (isset($_SESSION['catering_order_id'])) {
+            // Update catering order status if exists and this is full payment
+            if ($paymentStatus === 'paid' && isset($_SESSION['catering_order_id'])) {
                 $stmt = $pdo->prepare("UPDATE catering_orders SET status = 'confirmed' WHERE id = ?");
                 $stmt->execute([$_SESSION['catering_order_id']]);
             }
 
             // Insert into payment logs
+            $old_status = $booking['payment_status'];
             $stmt = $pdo->prepare("INSERT INTO payment_status_log 
                 (booking_id, old_payment_status, new_payment_status, changed_by, created_at)
-                VALUES (?, 'unpaid', ?, ?, NOW())");
+                VALUES (?, ?, ?, ?, NOW())");
             
             $stmt->execute([
                 $booking_id,
+                $old_status,
                 $paymentStatus,
                 $customerName
             ]);
@@ -113,16 +132,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
             // Store booking ID for success page
             $_SESSION['last_booking_id'] = $booking_id;
             
-            // Clear session data
-            unset($_SESSION['current_booking_id']);
-            unset($_SESSION['catering_info']);
-            unset($_SESSION['catering_order_id']);
-            unset($_SESSION['selected_package']);
-            unset($_SESSION['selected_dishes']);
-            unset($_SESSION['selected_addons']);
+            // Only clear session data if this is a new booking, not a continuation
+            if (!$continue_payment) {
+                unset($_SESSION['current_booking_id']);
+                unset($_SESSION['catering_info']);
+                unset($_SESSION['catering_order_id']);
+                unset($_SESSION['selected_package']);
+                unset($_SESSION['selected_dishes']);
+                unset($_SESSION['selected_addons']);
+            }
 
             $_SESSION['payment_success'] = true;
-            $_SESSION['payment_message'] = "Payment of ₱" . number_format($paymentAmount, 2) . " processed successfully!";
+            $_SESSION['payment_message'] = "Payment of ₱" . number_format($paymentAmount, 2) . " processed successfully! " . 
+                                         ($paymentStatus === 'paid' ? "Booking is now fully paid!" : "Remaining balance: ₱" . number_format($remaining_balance - $paymentAmount, 2));
 
             header("Location: payment_success.php");
             exit();
@@ -223,6 +245,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
         
         .dish-list li:last-child {
             border-bottom: none;
+        }
+        
+        .payment-progress {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+            font-size: 1.2rem;
         }
         
         .total-amount {
@@ -374,23 +406,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
     <script>
         function updatePaymentAmount() {
             const paymentType = document.querySelector('input[name="payment_type"]:checked').value;
-            const totalAmount = <?php echo $totalAmount; ?>;
+            const remainingBalance = <?php echo $remaining_balance; ?>;
             const minimumPayment = <?php echo $minimumPayment; ?>;
             const paymentAmountInput = document.getElementById('payment_amount');
             
             if (paymentType === 'full') {
-                paymentAmountInput.value = totalAmount.toFixed(2);
+                paymentAmountInput.value = remainingBalance.toFixed(2);
                 paymentAmountInput.readOnly = true;
             } else {
                 paymentAmountInput.value = minimumPayment.toFixed(2);
                 paymentAmountInput.readOnly = false;
                 paymentAmountInput.min = minimumPayment;
+                paymentAmountInput.max = remainingBalance;
             }
         }
         
         function validatePayment() {
             const paymentAmount = parseFloat(document.getElementById('payment_amount').value);
-            const totalAmount = <?php echo $totalAmount; ?>;
+            const remainingBalance = <?php echo $remaining_balance; ?>;
             const referenceNumber = document.getElementById('reference_number').value;
             
             if (!referenceNumber) {
@@ -398,8 +431,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
                 return false;
             }
             
-            if (paymentAmount > totalAmount) {
-                alert('Payment amount cannot exceed total amount.');
+            if (paymentAmount > remainingBalance) {
+                alert('Payment amount cannot exceed remaining balance of ₱' + remainingBalance.toFixed(2));
                 return false;
             }
             
@@ -408,12 +441,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
     </script>
 </head>
 <body>
-    <a href="javascript:history.back()" class="back-btn">&#8592; Back</a>
+    <a href="user_cart.php" class="back-btn">&#8592; Back to Cart</a>
 
     <div class="payment-container">
         <div class="payment-header">
-            <h1>Payment</h1>
-            <p>Complete your booking payment</p>
+            <h1><?php echo $continue_payment ? 'Additional Payment' : 'Payment'; ?></h1>
+            <p><?php echo $continue_payment ? 'Pay remaining balance for your booking' : 'Complete your booking payment'; ?></p>
         </div>
         
         <?php if ($error): ?>
@@ -422,6 +455,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
         
         <div class="order-summary">
             <h2>Order Summary</h2>
+            
+            <!-- Payment Progress (only show for continuing payments) -->
+            <?php if ($continue_payment && $amount_paid > 0): ?>
+                <div class="payment-progress">
+                    <p><strong>Already Paid:</strong> ₱<?php echo number_format($amount_paid, 2); ?></p>
+                    <p><strong>Remaining Balance:</strong> ₱<?php echo number_format($remaining_balance, 2); ?></p>
+                </div>
+            <?php endif; ?>
             
             <!-- Booking Details -->
             <div class="booking-details">
@@ -451,36 +492,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
                     <?php endif; ?>
                     
                     <?php if (!empty($catering_details['dishes'])): ?>
-    <div class="catering-items">
-        <strong>Selected Dishes:</strong>
-        <ul class="dish-list">
-            <?php
-            $dish_ids = $catering_details['dishes'];
-
-            if (!empty($dish_ids)) {
-                // Build placeholders (?, ?, ?, ...)
-                $placeholders = implode(',', array_fill(0, count($dish_ids), '?'));
-                $dish_stmt = $pdo->prepare("SELECT name FROM catering_dishes WHERE id IN ($placeholders)");
-                $dish_stmt->execute($dish_ids);
-                $dishes = $dish_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-                foreach ($dishes as $dish): ?>
-                    <li><?php echo htmlspecialchars($dish['name']); ?></li>
-                <?php endforeach;
-            } else {
-                echo "<li>No dishes selected</li>";
-            }
-            ?>
-        </ul>
-    </div>
-<?php endif; ?>
-
+                        <div class="catering-items">
+                            <strong>Selected Dishes:</strong>
+                            <ul class="dish-list">
+                                <?php
+                                $dish_ids = $catering_details['dishes'];
+                                if (!empty($dish_ids)) {
+                                    $placeholders = implode(',', array_fill(0, count($dish_ids), '?'));
+                                    $dish_stmt = $pdo->prepare("SELECT name FROM catering_dishes WHERE id IN ($placeholders)");
+                                    $dish_stmt->execute($dish_ids);
+                                    $dishes = $dish_stmt->fetchAll(PDO::FETCH_ASSOC);
+                                    foreach ($dishes as $dish): ?>
+                                        <li><?php echo htmlspecialchars($dish['name']); ?></li>
+                                    <?php endforeach;
+                                } else {
+                                    echo "<li>No dishes selected</li>";
+                                }
+                                ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
         </div>
         
         <div class="total-amount">
-            Total Amount: ₱<?php echo number_format($totalAmount, 2); ?>
+            <?php if ($continue_payment): ?>
+                Total Amount: ₱<?php echo number_format($totalAmount, 2); ?><br>
+                <small>Remaining Balance: ₱<?php echo number_format($remaining_balance, 2); ?></small>
+            <?php else: ?>
+                Total Amount: ₱<?php echo number_format($totalAmount, 2); ?>
+            <?php endif; ?>
         </div>
 
         <div class="payment-info">
@@ -496,14 +538,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
             <p>Scan the QR code above to make your payment</p>
         </div>
 
-        <form method="POST" action="payment.php?booking_id=<?php echo $booking_id; ?>" onsubmit="return validatePayment()">
+        <form method="POST" action="payment.php?booking_id=<?php echo $booking_id; ?><?php echo $continue_payment ? '&continue_payment=true' : ''; ?>" onsubmit="return validatePayment()">
             <div class="form-group">
                 <label>Payment Type</label>
                 <div class="payment-options">
                     <label class="payment-option" onclick="document.getElementById('full').checked = true; updatePaymentAmount()">
                         <input type="radio" id="full" name="payment_type" value="full" checked onchange="updatePaymentAmount()">
-                        <h4>Full Payment</h4>
-                        <p>Pay the full amount: ₱<?php echo number_format($totalAmount, 2); ?></p>
+                        <h4><?php echo $continue_payment ? 'Pay Full Balance' : 'Full Payment'; ?></h4>
+                        <p>Pay ₱<?php echo number_format($remaining_balance, 2); ?></p>
                     </label>
                     
                     <label class="payment-option" onclick="document.getElementById('partial').checked = true; updatePaymentAmount()">
@@ -517,7 +559,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
             <div class="form-group">
                 <label for="payment_amount">Payment Amount (₱)</label>
                 <input type="number" id="payment_amount" name="payment_amount" step="0.01" min="<?php echo $minimumPayment; ?>" 
-                       value="<?php echo number_format($totalAmount, 2); ?>" required>
+                       max="<?php echo $remaining_balance; ?>" value="<?php echo number_format($remaining_balance, 2); ?>" required>
                 <p class="info-text">Minimum partial payment: ₱<?php echo number_format($minimumPayment, 2); ?></p>
             </div>
 
@@ -530,7 +572,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_payment'])) {
             </div>
 
             <button type="submit" name="submit_payment" class="pay-now-btn">
-                Confirm Payment
+                <?php echo $continue_payment ? 'Make Additional Payment' : 'Confirm Payment'; ?>
             </button>
         </form>
     </div>

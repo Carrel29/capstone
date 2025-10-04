@@ -288,6 +288,275 @@ $archived_users = getArchivedUsers($pdo);
     <meta charset="UTF-8">
     <title>Admin Management</title>
     <link rel="stylesheet" href="../assets_css/admin.css">
+    <style>
+        /* Admin Management Specific Styles */
+        .tabs {
+            display: flex;
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 5px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-radius: 6px;
+            margin: 0 2px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .tab.active {
+            background: var(--highlight);
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .tab:hover:not(.active) {
+            background: rgba(74, 107, 255, 0.1);
+        }
+        
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Form Styles */
+        #add-user form {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        #add-user input {
+            width: 100%;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+        
+        #add-user input:focus {
+            outline: none;
+            border-color: var(--highlight);
+            box-shadow: 0 0 0 2px rgba(74, 107, 255, 0.1);
+        }
+        
+        #add-user button {
+            background: var(--highlight);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        #add-user button:hover {
+            background: var(--highlight-dark);
+        }
+        
+        /* Modal Enhancements */
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .modal-title {
+            color: var(--highlight);
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--highlight);
+            box-shadow: 0 0 0 2px rgba(74, 107, 255, 0.1);
+        }
+        
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .modal-footer button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-footer button[type="submit"] {
+            background: var(--highlight);
+            color: white;
+        }
+        
+        .modal-footer button[type="submit"]:hover {
+            background: var(--highlight-dark);
+        }
+        
+        .modal-footer button[type="button"] {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .modal-footer button[type="button"]:hover {
+            background: #7f8c8d;
+        }
+        
+        /* Button Styles */
+        .history-button {
+            background: var(--highlight);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: background 0.3s ease;
+            margin-right: 5px;
+        }
+        
+        .history-button:hover {
+            background: var(--highlight-dark);
+        }
+        
+        .clear-archive-btn {
+            background: #e74c3c;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: background 0.3s ease;
+        }
+        
+        .clear-archive-btn:hover {
+            background: #c0392b;
+        }
+        
+        /* Notification Styles */
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(231, 76, 60, 0.3);
+        }
+        
+        .success {
+            background: #27ae60;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(39, 174, 96, 0.3);
+        }
+        
+        /* Table Enhancements */
+        .customer-table {
+            background: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .customer-table th {
+            background: var(--highlight);
+            color: white;
+            padding: 15px;
+            font-weight: 600;
+        }
+        
+        .customer-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .customer-table tr:hover {
+            background: rgba(74, 107, 255, 0.05);
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                margin: 2px 0;
+                text-align: center;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10px;
+            }
+            
+            .modal-footer {
+                flex-direction: column;
+            }
+        }
+    </style>
 </head>
 <body>
 <div class="dashboard-container">
@@ -298,7 +567,7 @@ $archived_users = getArchivedUsers($pdo);
     </div>
     <ul class="nav-menu">
         <li><a href="dashboard.php">Dashboard</a></li>
-        <li><a href="add_user.php">Admin Management</a></li>
+        <li><a href="add_user.php" class="active">Admin Management</a></li>
         <li><a href="user_management.php">User Management</a></li>
         <li><a href="calendar.php">Calendar</a></li>
         <li><a href="Inventory.php">Inventory</a></li>
@@ -327,7 +596,7 @@ $archived_users = getArchivedUsers($pdo);
         </div>
 
         <!-- Active Admins -->
-        <div id="active-users" class="tab-content">
+        <div id="active-users" class="tab-content active">
             <table class="customer-table">
                 <thead>
                     <tr>
@@ -362,7 +631,7 @@ $archived_users = getArchivedUsers($pdo);
         </div>
 
         <!-- Archived Admins -->
-        <div id="archived-users" class="tab-content" style="display:none;">
+        <div id="archived-users" class="tab-content">
             <table class="customer-table">
                 <thead>
                     <tr>
@@ -391,7 +660,7 @@ $archived_users = getArchivedUsers($pdo);
         </div>
 
         <!-- Add Admin -->
-        <div id="add-user" class="tab-content" style="display:none;">
+        <div id="add-user" class="tab-content">
             <form method="POST">
                 <input type="hidden" name="action" value="add_user">
                 <input type="text" name="first_name" placeholder="First Name" required>
@@ -437,8 +706,8 @@ $archived_users = getArchivedUsers($pdo);
                 <input type="password" id="edit_password" name="password">
             </div>
             <div class="modal-footer">
-                <button type="button" onclick="closeModal()" style="background-color: #7f8c8d;">Cancel</button>
-                <button type="submit" style="background-color: #2c3e50;">Update Admin</button>
+                <button type="button" onclick="closeModal()">Cancel</button>
+                <button type="submit">Update Admin</button>
             </div>
         </form>
     </div>
@@ -456,13 +725,89 @@ $archived_users = getArchivedUsers($pdo);
             <input type="hidden" id="confirm_action" name="action" value="">
             <input type="hidden" id="confirm_id" name="archive_id" value="">
             <div class="modal-footer">
-                <button type="button" onclick="closeConfirmModal()" style="background-color: #7f8c8d;">Cancel</button>
-                <button type="submit" id="confirmButton" style="background-color: #e74c3c;">Confirm</button>
+                <button type="button" onclick="closeConfirmModal()">Cancel</button>
+                <button type="submit" id="confirmButton">Confirm</button>
             </div>
         </form>
     </div>
 </div>
 
-<script src="../asset_js/add_user.js"></script>
+<script>
+// Tab functionality
+function openTab(tabName) {
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(tab => tab.classList.remove('active'));
+    
+    // Remove active class from all tabs
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => tab.classList.remove('active'));
+    
+    // Show selected tab content and activate tab
+    document.getElementById(tabName).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
+// Modal functions
+function editUser(id, firstName, lastName, email, phone) {
+    document.getElementById('edit_user_id').value = id;
+    document.getElementById('edit_first_name').value = firstName;
+    document.getElementById('edit_last_name').value = lastName;
+    document.getElementById('edit_email').value = email;
+    document.getElementById('edit_phone').value = phone;
+    document.getElementById('editModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+
+function confirmArchive(userId) {
+    document.getElementById('confirmTitle').textContent = 'Archive Admin';
+    document.getElementById('confirmMessage').textContent = 'Are you sure you want to archive this admin? They will be moved to archived admins.';
+    document.getElementById('confirm_action').value = 'archive_user';
+    document.getElementById('confirm_id').value = userId;
+    document.getElementById('confirmButton').textContent = 'Archive';
+    document.getElementById('confirmButton').style.backgroundColor = '#e74c3c';
+    document.getElementById('confirmModal').style.display = 'block';
+}
+
+function confirmRestore(archiveId) {
+    document.getElementById('confirmTitle').textContent = 'Restore Admin';
+    document.getElementById('confirmMessage').textContent = 'Are you sure you want to restore this admin?';
+    document.getElementById('confirm_action').value = 'restore_user';
+    document.getElementById('confirm_id').value = archiveId;
+    document.getElementById('confirmButton').textContent = 'Restore';
+    document.getElementById('confirmButton').style.backgroundColor = '#27ae60';
+    document.getElementById('confirmModal').style.display = 'block';
+}
+
+function confirmDelete(archiveId) {
+    document.getElementById('confirmTitle').textContent = 'Delete Admin';
+    document.getElementById('confirmMessage').textContent = 'Are you sure you want to permanently delete this admin? This action cannot be undone.';
+    document.getElementById('confirm_action').value = 'permanently_delete';
+    document.getElementById('confirm_id').value = archiveId;
+    document.getElementById('confirmButton').textContent = 'Delete';
+    document.getElementById('confirmButton').style.backgroundColor = '#e74c3c';
+    document.getElementById('confirmModal').style.display = 'block';
+}
+
+function closeConfirmModal() {
+    document.getElementById('confirmModal').style.display = 'none';
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const editModal = document.getElementById('editModal');
+    const confirmModal = document.getElementById('confirmModal');
+    
+    if (event.target === editModal) {
+        editModal.style.display = 'none';
+    }
+    if (event.target === confirmModal) {
+        confirmModal.style.display = 'none';
+    }
+}
+</script>
 </body>
 </html>

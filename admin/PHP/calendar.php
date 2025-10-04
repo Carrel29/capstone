@@ -40,6 +40,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['booking_id'], $_POST[
     exit;
 }
 
+// Function to get catering details for a booking
+function getCateringDetails($pdo, $bookingId) {
+    $cateringDetails = [];
+    
+    // Get catering order information
+    $stmt = $pdo->prepare("
+        SELECT co.*, cp.name as package_name, cp.dish_count, cp.base_price
+        FROM catering_orders co 
+        LEFT JOIN catering_packages cp ON co.package_id = cp.id 
+        WHERE co.booking_id = ?
+    ");
+    $stmt->execute([$bookingId]);
+    $cateringOrders = $stmt->fetchAll();
+    
+    foreach ($cateringOrders as $order) {
+        // Get dishes for this catering order
+        $stmt = $pdo->prepare("
+            SELECT cd.name, cd.category 
+            FROM catering_order_dishes cod 
+            LEFT JOIN catering_dishes cd ON cod.dish_id = cd.id 
+            WHERE cod.catering_order_id = ?
+        ");
+        $stmt->execute([$order['id']]);
+        $dishes = $stmt->fetchAll();
+        
+        $cateringDetails[] = [
+            'package' => $order,
+            'dishes' => $dishes
+        ];
+    }
+    
+    return $cateringDetails;
+}
+
 $year = isset($_GET['year']) ? intval($_GET['year']) : date('Y');
 $month = isset($_GET['month']) ? intval($_GET['month']) : date('m');
 $bookings = getBookingsForMonth($pdo, $year, str_pad($month,2,"0",STR_PAD_LEFT));
@@ -274,10 +308,12 @@ $daysInMonth = date('t', strtotime("$year-$month-01"));
             background: var(--card-bg);
             padding: 24px 20px 16px 20px;
             border-radius: 12px;
-            max-width: 500px;
-            margin: 7% auto 0 auto;
+            max-width: 700px;
+            margin: 5% auto 0 auto;
             position: relative;
             box-shadow: 0 6px 30px rgba(54,162,235,0.13);
+            max-height: 80vh;
+            overflow-y: auto;
         }
 
         .modal h4 {
@@ -327,6 +363,65 @@ $daysInMonth = date('t', strtotime("$year-$month-01"));
             background: white;
         }
 
+        /* Catering Styles */
+        .catering-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .catering-header {
+            font-weight: 600;
+            color: var(--primary-bg);
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .catering-package {
+            background: white;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .package-name {
+            font-weight: 600;
+            color: var(--highlight);
+            margin-bottom: 5px;
+        }
+
+        .package-details {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .dishes-list {
+            margin-top: 8px;
+            padding-left: 15px;
+        }
+
+        .dish-item {
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 3px;
+        }
+
+        .dish-category {
+            font-style: italic;
+            color: #888;
+            font-size: 12px;
+        }
+
+        .no-catering {
+            color: #888;
+            font-style: italic;
+            font-size: 14px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .sidebar {
@@ -348,6 +443,11 @@ $daysInMonth = date('t', strtotime("$year-$month-01"));
             .calendar-table td {
                 padding: 10px 5px;
                 font-size: 12px;
+            }
+            
+            .modal {
+                max-width: 90vw;
+                margin: 10% auto;
             }
         }
 
@@ -488,7 +588,46 @@ $daysInMonth = date('t', strtotime("$year-$month-01"));
                 echo "</select></form><br>";
                 echo "<span class='booking-label'>Customer:</span> ".htmlspecialchars($b['bt_first_name']." ".$b['bt_last_name'])."<br>";
                 echo "<span class='booking-label'>Email:</span> ".htmlspecialchars($b['bt_email'])."<br>";
-                echo "<span class='booking-label'>Phone:</span> ".htmlspecialchars($b['bt_phone_number']);
+                echo "<span class='booking-label'>Phone:</span> ".htmlspecialchars($b['bt_phone_number'])."<br>";
+                echo "<span class='booking-label'>Total Cost:</span> ₱".number_format($b['total_cost'], 2)."<br>";
+                echo "<span class='booking-label'>Payment Status:</span> ".ucfirst($b['payment_status']);
+                
+                // Display catering information
+                $cateringDetails = getCateringDetails($pdo, $b['id']);
+                if (!empty($cateringDetails)) {
+                    echo "<div class='catering-section'>";
+                    echo "<div class='catering-header'>Catering Order Details:</div>";
+                    foreach ($cateringDetails as $catering) {
+                        echo "<div class='catering-package'>";
+                        echo "<div class='package-name'>".htmlspecialchars($catering['package']['package_name'])."</div>";
+                        echo "<div class='package-details'>";
+                        echo "Dish Count: ".$catering['package']['dish_count']." | ";
+                        echo "Base Price: ₱".number_format($catering['package']['base_price'], 2)." | ";
+                        echo "Status: ".ucfirst($catering['package']['status']);
+                        echo "</div>";
+                        
+                        if (!empty($catering['dishes'])) {
+                            echo "<div class='dishes-list'>";
+                            echo "<strong>Selected Dishes:</strong>";
+                            foreach ($catering['dishes'] as $dish) {
+                                echo "<div class='dish-item'>";
+                                echo htmlspecialchars($dish['name']);
+                                if ($dish['category']) {
+                                    echo " <span class='dish-category'>(".htmlspecialchars($dish['category']).")</span>";
+                                }
+                                echo "</div>";
+                            }
+                            echo "</div>";
+                        }
+                        echo "</div>";
+                    }
+                    echo "</div>";
+                } else {
+                    echo "<div class='catering-section'>";
+                    echo "<div class='no-catering'>No catering order for this booking</div>";
+                    echo "</div>";
+                }
+                
                 echo "</div>";
             }
         } else {

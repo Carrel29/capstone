@@ -17,6 +17,7 @@ $host = 'localhost';
 $dbname = 'btonedatabase';
 $username = 'root';
 $password = '';
+
 // Database Connection
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
@@ -25,14 +26,29 @@ try {
     die("Database Connection Failed: " . $e->getMessage());
 }
 
-// Fetch Customer Inquiries with Payment Data
+// Fetch Customer Inquiries with Payment Data - FIXED QUERY
 function getBookings($pdo) {
     $stmt = $pdo->prepare("
-        SELECT b.*, u.bt_first_name, u.bt_last_name, u.bt_email,
-               s.GcashReferenceNo, s.AmountPaid, s.TotalAmount, s.DateCreated as payment_date
+        SELECT 
+            b.*, 
+            u.bt_first_name, 
+            u.bt_last_name, 
+            u.bt_email,
+            -- Get the latest GCash reference number
+            (SELECT s1.GcashReferenceNo 
+             FROM sales s1 
+             WHERE s1.booking_id = b.id 
+             ORDER BY s1.DateCreated DESC 
+             LIMIT 1) as GcashReferenceNo,
+            -- Get total amount paid across all payments
+            COALESCE(SUM(s2.AmountPaid), 0) as TotalAmountPaid,
+            -- Get the total cost of the booking
+            b.total_cost as TotalAmount
         FROM bookings b
         JOIN btuser u ON b.btuser_id = u.bt_user_id
-        LEFT JOIN sales s ON b.id = s.booking_id
+        LEFT JOIN sales s2 ON b.id = s2.booking_id
+        WHERE b.status NOT IN ('Canceled', 'Completed')
+        GROUP BY b.id, u.bt_first_name, u.bt_last_name, u.bt_email, b.total_cost
         ORDER BY b.btschedule DESC
         LIMIT 50
     ");
@@ -46,6 +62,7 @@ function getBookingAnalytics($pdo)
     $stmt = $pdo->prepare("
         SELECT btevent, COUNT(*) AS booking_count
         FROM bookings
+        WHERE status NOT IN ('Canceled', 'Completed')
         GROUP BY btevent
         ORDER BY booking_count DESC
     ");
@@ -60,6 +77,7 @@ function getMonthlyBookings($pdo)
         SELECT DATE_FORMAT(btschedule, '%Y-%m') AS month, COUNT(*) AS booking_count
         FROM bookings
         WHERE btschedule >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        AND status NOT IN ('Canceled', 'Completed')
         GROUP BY DATE_FORMAT(btschedule, '%Y-%m')
         ORDER BY month ASC
     ");
@@ -78,6 +96,7 @@ function getMonthDetails($pdo, $month, $year)
         GROUP_CONCAT(DISTINCT btevent) as popular_packages
         FROM bookings b
         WHERE MONTH(b.btschedule) = ? AND YEAR(b.btschedule) = ?
+        AND b.status NOT IN ('Canceled', 'Completed')
     ");
     $stmt->execute([$month, $year]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -87,12 +106,26 @@ function getMonthDetails($pdo, $month, $year)
 function getArchivedBookings($pdo)
 {
     $stmt = $pdo->prepare("
-        SELECT b.*, u.bt_first_name, u.bt_last_name, u.bt_email,
-               s.GcashReferenceNo, s.AmountPaid, s.TotalAmount
+        SELECT 
+            b.*, 
+            u.bt_first_name, 
+            u.bt_last_name, 
+            u.bt_email,
+            -- Get the latest GCash reference number
+            (SELECT s1.GcashReferenceNo 
+             FROM sales s1 
+             WHERE s1.booking_id = b.id 
+             ORDER BY s1.DateCreated DESC 
+             LIMIT 1) as GcashReferenceNo,
+            -- Get total amount paid across all payments
+            COALESCE(SUM(s2.AmountPaid), 0) as TotalAmountPaid,
+            -- Get the total cost of the booking
+            b.total_cost as TotalAmount
         FROM bookings b
         JOIN btuser u ON b.btuser_id = u.bt_user_id
-        LEFT JOIN sales s ON b.id = s.booking_id
+        LEFT JOIN sales s2 ON b.id = s2.booking_id
         WHERE b.status IN ('Canceled', 'Completed')
+        GROUP BY b.id, u.bt_first_name, u.bt_last_name, u.bt_email, b.total_cost
         ORDER BY b.btschedule DESC
     ");
     $stmt->execute();
@@ -151,116 +184,195 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
             color: #999;
             font-style: italic;
         }
+        
         /* Charts Section - Much Smaller Charts */
-.charts-section {
-    display: flex;
-    gap: 15px;
-    margin-bottom: 20px;
-}
+        .charts-section {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
 
-.chart-card {
-    background: var(--card-bg);
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    flex: 1;
-}
+        .chart-card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            flex: 1;
+        }
 
-.chart-card h4 {
-    margin: 0 0 8px 0;
-    font-size: 13px;
-    color: var(--highlight);
-    text-align: center;
-    font-weight: 600;
-}
+        .chart-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: var(--highlight);
+            text-align: center;
+            font-weight: 600;
+        }
 
-.chart-card canvas {
-    width: 100% !important;
-    height: 150px !important; /* Much smaller */
-    max-height: 150px;
-}
+        .chart-card canvas {
+            width: 100% !important;
+            height: 150px !important;
+            max-height: 150px;
+        }
 
-/* For extra small charts */
-.charts-section.compact .chart-card canvas {
-    height: 120px !important;
-    max-height: 120px;
-}
+        /* For extra small charts */
+        .charts-section.compact .chart-card canvas {
+            height: 120px !important;
+            max-height: 120px;
+        }
 
-/* If still too big, try this ultra-compact version */
-.charts-section.ultra-compact {
-    gap: 10px;
-}
+        /* If still too big, try this ultra-compact version */
+        .charts-section.ultra-compact {
+            gap: 10px;
+        }
 
-.charts-section.ultra-compact .chart-card {
-    padding: 8px;
-}
+        .charts-section.ultra-compact .chart-card {
+            padding: 8px;
+        }
 
-.charts-section.ultra-compact .chart-card canvas {
-    height: 100px !important;
-    max-height: 100px;
-}
+        .charts-section.ultra-compact .chart-card canvas {
+            height: 100px !important;
+            max-height: 100px;
+        }
 
-.charts-section.ultra-compact .chart-card h4 {
-    font-size: 12px;
-    margin-bottom: 5px;
-}
+        .charts-section.ultra-compact .chart-card h4 {
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .status-cell {
+            font-weight: bold;
+        }
+
+        /* Status colors */
+        .status-cell[data-status="Pending"] { color: #ff9800; }
+        .status-cell[data-status="Approved"] { color: #4caf50; }
+        .status-cell[data-status="Canceled"] { color: #f44336; }
+        .status-cell[data-status="Completed"] { color: #2196f3; }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            color: white;
+            z-index: 1000;
+            font-weight: bold;
+            transition: opacity 0.3s;
+        }
+        
+        .notification.success {
+            background-color: #4caf50;
+        }
+        
+        .notification.error {
+            background-color: #f44336;
+        }
+        
+        /* Month Navigation Styles */
+        .month-navigation {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 15px;
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .nav-btn {
+            padding: 10px 20px;
+            background: var(--highlight);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        .nav-btn:hover {
+            background: var(--highlight-dark);
+        }
+        
+        .nav-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        #currentMonthDisplay {
+            margin: 0;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: var(--text-color);
+            min-width: 200px;
+            text-align: center;
+        }
+        
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
     </style>
 </head>
 
 <body>
     <div class="dashboard-container">
-    <nav class="sidebar">
-    <div class="logo">
-        <h2>Admin Dashboard</h2>
-    </div>
-    <ul class="nav-menu">
-        <li><a href="dashboard.php" >Dashboard</a></li>
-        <li><a href="add_user.php">Admin Management</a></li>
-        <li><a href="user_management">User Management</a></li>
-        <li><a href="calendar.php">Calendar</a></li>
-        <li><a href="Inventory.php">Inventory</a></li>
-        <li><a href="admin_management.php">Edit</a></li>
-        <li><a href="Index.php?logout=true">Logout</a></li>
-    </ul>
-</nav>
+        <nav class="sidebar">
+            <div class="logo">
+                <h2>Admin Dashboard</h2>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="add_user.php">Admin Management</a></li>
+                <li><a href="user_management.php">User Management</a></li>
+                <li><a href="calendar.php">Calendar</a></li>
+                <li><a href="Inventory.php">Inventory</a></li>
+                <li><a href="admin_management.php">Edit</a></li>
+                <li><a href="Index.php?logout=true">Logout</a></li>
+            </ul>
+        </nav>
 
         <main class="main-content">
             <div class="analytics-section">
-    <div class="stat-card">
-        <h3>Total Bookings</h3>
-        <p id="totalBookings"><?php echo $currentMonthData['total_bookings'] ?? 0; ?></p>
-    </div>
-    <div class="stat-card">
-        <h3>Confirmed</h3>
-        <p id="confirmedBookings"><?php echo $currentMonthData['confirmed_bookings'] ?? 0; ?></p>
-    </div>
-    <div class="stat-card">
-        <h3>Pending</h3>
-        <p id="pendingBookings"><?php echo $currentMonthData['pending_bookings'] ?? 0; ?></p>
-    </div>
-    <div class="stat-card">
-        <h3>Popular Packages</h3>
-        <p id="popularPackages"><?php echo $currentMonthData['popular_packages'] ?? 'N/A'; ?></p>
-    </div>
-</div>
+                <div class="stat-card">
+                    <h3>Total Bookings</h3>
+                    <p id="totalBookings"><?php echo $currentMonthData['total_bookings'] ?? 0; ?></p>
+                </div>
+                <div class="stat-card">
+                    <h3>Confirmed</h3>
+                    <p id="confirmedBookings"><?php echo $currentMonthData['confirmed_bookings'] ?? 0; ?></p>
+                </div>
+                <div class="stat-card">
+                    <h3>Pending</h3>
+                    <p id="pendingBookings"><?php echo $currentMonthData['pending_bookings'] ?? 0; ?></p>
+                </div>
+                <div class="stat-card">
+                    <h3>Popular Packages</h3>
+                    <p id="popularPackages"><?php echo $currentMonthData['popular_packages'] ?? 'N/A'; ?></p>
+                </div>
+            </div>
 
-<!-- Charts Row -->
-<div class="charts-section">
-    <div class="chart-card">
-        <h4>Event Bookings</h4>
-        <canvas id="bookingChart"></canvas>
-    </div>
-    <div class="chart-card">
-        <h4>Monthly Trends</h4>
-        <canvas id="monthlyTrendChart"></canvas>
-    </div>
-</div>
-<!-- Month Navigation -->
-<div class="month-navigation">
-    <button id="prevMonth" class="nav-btn">&lt; Previous Month</button>
-    <h2 id="currentMonthDisplay"><?php echo date('F Y'); ?></h2>
-    <button id="nextMonth" class="nav-btn">Next Month &gt;</button>
-</div>
+            <!-- Charts Row -->
+            <div class="charts-section">
+                <div class="chart-card">
+                    <h4>Event Bookings</h4>
+                    <canvas id="bookingChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h4>Monthly Trends</h4>
+                    <canvas id="monthlyTrendChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Month Navigation -->
+            <div class="month-navigation">
+                <button id="prevMonth" class="nav-btn">&lt; Previous Month</button>
+                <h2 id="currentMonthDisplay"><?php echo date('F Y'); ?></h2>
+                <button id="nextMonth" class="nav-btn">Next Month &gt;</button>
+            </div>
 
             <div class="table-header">
                 <h3>Active Inquiries</h3>
@@ -269,6 +381,7 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                     <span id="refreshIndicator" class="refresh-indicator">Table updated</span>
                 </div>
             </div>
+            
             <table class="customer-table">
                 <thead>
                     <tr>
@@ -282,14 +395,14 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                     </tr>
                 </thead>
                 <tbody>
-                  <?php foreach ($bookingData as $booking): ?>
+                    <?php foreach ($bookingData as $booking): ?>
                     <tr>
                         <td><?php echo htmlspecialchars($booking['bt_first_name'] . ' ' . $booking['bt_last_name']); ?></td>
-                        <td><?php echo htmlspecialchars($booking['btschedule']);?></td>
+                        <td><?php echo htmlspecialchars($booking['btschedule']); ?></td>
                         <td class="status-cell-<?php echo htmlspecialchars($booking['id']); ?>">
-                        <?php echo htmlspecialchars($booking['status']); ?>
+                            <?php echo htmlspecialchars($booking['status']); ?>
                         </td>
-                        <td><?php echo htmlspecialchars($booking['btevent']);?></td>
+                        <td><?php echo htmlspecialchars($booking['btevent']); ?></td>
                         <td>
                             <?php if (!empty($booking['GcashReferenceNo'])): ?>
                                 <span class="gcash-reference">
@@ -300,9 +413,9 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                             <?php endif; ?>
                         </td>
                         <td>
-                            <?php if (!empty($booking['AmountPaid'])): ?>
-                                ₱<?php echo number_format($booking['AmountPaid'], 2); ?>
-                                <?php if ($booking['AmountPaid'] < $booking['TotalAmount']): ?>
+                            <?php if ($booking['TotalAmountPaid'] > 0): ?>
+                                ₱<?php echo number_format($booking['TotalAmountPaid'], 2); ?>
+                                <?php if ($booking['TotalAmountPaid'] < $booking['TotalAmount']): ?>
                                     <span class="payment-status paid-partial">(Partial)</span>
                                 <?php else: ?>
                                     <span class="payment-status paid-full">(Full)</span>
@@ -312,24 +425,23 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                             <?php endif; ?>
                         </td>
                         <td>
-                            <select class="status-select" onchange="updateStatus('<?php echo htmlspecialchars($booking['id']);?>', this.value)">
-                                <option value=""> Change Status</option>
-                                    <?php
-                                        $statuses = ['Pending', 'Approved', 'Canceled', 'Completed'];
-                                        foreach ($statuses as$statusOption):
-                                            $selected = ($booking['status'] === $statusOption) ? 'selected' :'';
-                                    ?>
-                                    <option value="<?php echo $statusOption; ?>" <?php echo $selected; ?>>
-                                        <?php echo $statusOption; ?>
-                                    </option>
-                                    <?php endforeach; ?>
+                            <select class="status-select" onchange="updateStatus('<?php echo htmlspecialchars($booking['id']); ?>', this.value, event)">
+                                <option value="">Change Status</option>
+                                <?php
+                                    $statuses = ['Pending', 'Approved', 'Canceled', 'Completed'];
+                                    foreach ($statuses as $statusOption):
+                                        $selected = ($booking['status'] === $statusOption) ? 'selected' : '';
+                                ?>
+                                <option value="<?php echo $statusOption; ?>" <?php echo $selected; ?>>
+                                    <?php echo $statusOption; ?>
+                                </option>
+                                <?php endforeach; ?>
                             </select>
                         </td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
-
 
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <script>    
@@ -376,8 +488,8 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if (!empty($archived['AmountPaid'])): ?>
-                                            ₱<?php echo number_format($archived['AmountPaid'], 2); ?>
+                                        <?php if ($archived['TotalAmountPaid'] > 0): ?>
+                                            ₱<?php echo number_format($archived['TotalAmountPaid'], 2); ?>
                                         <?php else: ?>
                                             <span class="not-paid">-</span>
                                         <?php endif; ?>
@@ -388,6 +500,236 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                     </table>
                 </div>
             </div>
-</body>
+        </main>
+    </div>
 
+    <script>
+    // Month Navigation Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const prevMonthBtn = document.getElementById('prevMonth');
+        const nextMonthBtn = document.getElementById('nextMonth');
+        const currentMonthDisplay = document.getElementById('currentMonthDisplay');
+        
+        let currentDate = new Date();
+        
+        // Function to update dashboard for selected month
+        function updateDashboardForMonth(year, month) {
+            console.log('Updating dashboard for:', year, month);
+            
+            // Show loading state
+            document.getElementById('totalBookings').textContent = 'Loading...';
+            document.getElementById('confirmedBookings').textContent = 'Loading...';
+            document.getElementById('pendingBookings').textContent = 'Loading...';
+            document.getElementById('popularPackages').textContent = 'Loading...';
+            
+            // Add loading class to navigation
+            document.querySelector('.month-navigation').classList.add('loading');
+            
+            // Make AJAX request to get month data
+            fetch('get_month_data.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'month=' + encodeURIComponent(month) + 
+                      '&year=' + encodeURIComponent(year)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Update statistics
+                    document.getElementById('totalBookings').textContent = data.total_bookings || 0;
+                    document.getElementById('confirmedBookings').textContent = data.confirmed_bookings || 0;
+                    document.getElementById('pendingBookings').textContent = data.pending_bookings || 0;
+                    document.getElementById('popularPackages').textContent = data.popular_packages || 'N/A';
+                    
+                    // Update month display
+                    const monthNames = ["January", "February", "March", "April", "May", "June",
+                        "July", "August", "September", "October", "November", "December"
+                    ];
+                    currentMonthDisplay.textContent = `${monthNames[month-1]} ${year}`;
+                    
+                    showNotification(`Now viewing ${monthNames[month-1]} ${year}`, 'success');
+                } else {
+                    showNotification('Error loading month data: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Network error loading month data', 'error');
+            })
+            .finally(() => {
+                // Remove loading class
+                document.querySelector('.month-navigation').classList.remove('loading');
+            });
+        }
+        
+        // Previous Month button click
+        if (prevMonthBtn) {
+            prevMonthBtn.addEventListener('click', function() {
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+                
+                updateDashboardForMonth(year, month);
+            });
+        }
+        
+        // Next Month button click
+        if (nextMonthBtn) {
+            nextMonthBtn.addEventListener('click', function() {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth() + 1;
+                
+                updateDashboardForMonth(year, month);
+            });
+        }
+    });
+
+    function updateStatus(bookingId, newStatus, event) {
+        if (!newStatus) return;
+        
+        console.log('Starting updateStatus:', { bookingId, newStatus });
+
+        const statusCell = document.querySelector('.status-cell-' + bookingId);
+        if (!statusCell) {
+            console.error('Status cell not found for booking:', bookingId);
+            showNotification('Error: Could not find booking element', 'error');
+            return;
+        }
+
+        const originalStatus = statusCell.textContent;
+        statusCell.textContent = 'Updating...';
+        statusCell.style.color = '#ff9800';
+
+        fetch('/capstone/admin/php/update_status.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'id=' + encodeURIComponent(bookingId) + 
+                  '&status=' + encodeURIComponent(newStatus)
+        })
+        .then(response => {
+            console.log('Response received, status:', response.status);
+            if (!response.ok) {
+                throw new Error('HTTP error! status: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Parsed response data:', data);
+            if (data.success) {
+                statusCell.textContent = newStatus;
+                statusCell.style.color = getStatusColor(newStatus);
+                showNotification('Status updated successfully!', 'success');
+                
+                // Reset the dropdown - now using the event parameter
+                if (event && event.target) {
+                    event.target.value = '';
+                }
+                
+                // Refresh page after delay to update analytics
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                statusCell.textContent = originalStatus;
+                statusCell.style.color = getStatusColor(originalStatus);
+                showNotification('Error: ' + (data.error || 'Update failed'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Fetch error details:', error);
+            statusCell.textContent = originalStatus;
+            statusCell.style.color = getStatusColor(originalStatus);
+            showNotification('Network error: ' + error.message, 'error');
+        });
+    }
+
+    function getStatusColor(status) {
+        const colors = {
+            'Pending': '#ff9800',
+            'Approved': '#4caf50',
+            'Canceled': '#f44336',
+            'Completed': '#2196f3'
+        };
+        return colors[status] || '#666';
+    }
+
+    function showNotification(message, type) {
+        // Remove existing notifications
+        const existingNotifications = document.querySelectorAll('.notification');
+        existingNotifications.forEach(notification => notification.remove());
+
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            color: white;
+            z-index: 1000;
+            font-weight: bold;
+            transition: opacity 0.3s;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+
+    // Modal functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const historyButton = document.getElementById('historyButton');
+        const historyModal = document.getElementById('historyModal');
+        const closeModal = document.querySelector('.close-modal');
+        const clearArchiveBtn = document.getElementById('clearArchiveBtn');
+
+        if (historyButton && historyModal) {
+            historyButton.addEventListener('click', function() {
+                historyModal.style.display = 'block';
+            });
+
+            closeModal.addEventListener('click', function() {
+                historyModal.style.display = 'none';
+            });
+
+            window.addEventListener('click', function(event) {
+                if (event.target === historyModal) {
+                    historyModal.style.display = 'none';
+                }
+            });
+        }
+
+        if (clearArchiveBtn) {
+            clearArchiveBtn.addEventListener('click', function() {
+                if (confirm('Are you sure you want to clear all archived inquiries? This action cannot be undone.')) {
+                    // Add your clear archive logic here
+                    showNotification('Archive cleared successfully!', 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                }
+            });
+        }
+    });
+    </script>
+</body>
 </html>
