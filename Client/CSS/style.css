@@ -52,6 +52,21 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-top: 1.5rem;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.combo-display-flex-space-between input[type="submit"] {
+  flex: 0 0 auto;
+  width: auto !important;
+  min-width: 200px;
+  padding: 12px 20px;
+  white-space: nowrap;
+}
+
+.combo-display-flex-space-between a {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .combo-display-flex-end {
@@ -210,8 +225,9 @@ section {
 /* width and height */
 
 .w-20 {
-  width: 20% !important;
-  padding: 0.75rem 1.5rem;
+  width: auto !important;
+  min-width: 200px;
+  padding: 12px 25px;
   background-color: #A08963;
   color: white;
   border: none;
@@ -219,6 +235,7 @@ section {
   cursor: pointer;
   font-size: 1rem;
   transition: background-color 0.3s ease;
+  white-space: nowrap;
 }
 
 .w-20:hover {

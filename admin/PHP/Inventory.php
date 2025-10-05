@@ -147,7 +147,7 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
     <title>BTONE - Inventory Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root{
+        :root {
             --primary-bg: #422b0d;
             --secondary-bg: #eae7de;
             --card-bg: #ffffff;
@@ -164,7 +164,7 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
             box-sizing: border-box;
         }
 
-        body{
+        body {
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--secondary-bg);
             color: var(--text-dark);
@@ -314,7 +314,7 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
         }
 
         /* Tables */
-        .inventory-table, .history-table {
+        table {
             width: 100%;
             border-collapse: collapse;
             background: var(--card-bg);
@@ -324,12 +324,12 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
             margin-bottom: 30px;
         }
 
-        .inventory-table thead, .history-table thead {
+        table thead {
             background: var(--primary-bg);
             color: var(--text-light);
         }
 
-        .inventory-table th, .history-table th {
+        table th {
             padding: 15px;
             text-align: left;
             font-weight: 600;
@@ -337,22 +337,22 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
             border: none;
         }
 
-        .inventory-table td, .history-table td {
+        table td {
             padding: 15px;
             text-align: left;
             border-bottom: 1px solid #f0f0f0;
             font-size: 14px;
         }
 
-        .inventory-table tbody tr:hover, .history-table tbody tr:hover {
+        table tbody tr:hover {
             background-color: #f8f9fa;
         }
 
-        .inventory-table tbody tr:last-child td, .history-table tbody tr:last-child td {
+        table tbody tr:last-child td {
             border-bottom: none;
         }
 
-        /* Status Badges */
+        /* Status Badges - FIXED CLASS NAMES */
         .status {
             padding: 6px 12px;
             border-radius: 20px;
@@ -408,12 +408,11 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
                 min-width: auto;
             }
             
-            .inventory-table, .history-table {
+            table {
                 font-size: 12px;
             }
             
-            .inventory-table th, .inventory-table td, 
-            .history-table th, .history-table td {
+            table th, table td {
                 padding: 10px;
             }
         }
@@ -457,22 +456,22 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
     <div class="dashboard-container">
         <nav class="sidebar">
             <div class="logo">
-                <h2>Admin Dashboard</h2>
+                <h2>BTONE Admin</h2>
             </div>
             <ul class="nav-menu">
-                <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="add_user.php">Admin Management</a></li>
-                <li><a href="user_management.php">User Management</a></li>
+                <li><a href="dashboard.php"> Dashboard</a></li>
+                <li><a href="add_user.php"> Admin Management</a></li>
+                <li><a href="user_management.php"> User Management</a></li>
                 <li><a href="calendar.php">Calendar</a></li>
                 <li><a href="Inventory.php" class="active">Inventory</a></li>
-                <li><a href="admin_management.php">Edit</a></li>
+                <li><a href="admin_management.php"> Edit Services</a></li>
                 <li><a href="Index.php?logout=true">Logout</a></li>
             </ul>
         </nav>
 
         <main class="main-content">
             <div class="section-header">
-                <h2>Equipment Inventory Overview</h2>
+                <h2><i class="fas fa-boxes"></i> Equipment Inventory Overview</h2>
                 <small style="color: #666; font-size: 12px;">Auto-updates every 5 minutes</small>
             </div>
 
@@ -528,10 +527,10 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
 
             <!-- Equipment Inventory Table -->
             <div class="section-header">
-                <h2>Equipment Inventory</h2>
+                <h2><i class="fas fa-tools"></i> Equipment Inventory</h2>
             </div>
 
-            <table class="inventory-table">
+            <table>
                 <thead>
                     <tr>
                         <th>Item Name</th>
@@ -585,10 +584,10 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
 
             <!-- Rental History Section -->
             <div class="section-header">
-                <h2>Recent Rental History</h2>
+                <h2><i class="fas fa-history"></i> Recent Rental History</h2>
             </div>
 
-            <table class="history-table">
+            <table>
                 <thead>
                     <tr>
                         <th>Item Name</th>

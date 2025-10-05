@@ -26,6 +26,51 @@ try {
     die("Database Connection Failed: " . $e->getMessage());
 }
 
+// Handle status update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'update_status') {
+        $booking_id = $_POST['booking_id'];
+        $new_status = $_POST['status'];
+        $user_id = $_SESSION['bt_user_id'];
+        
+        try {
+            // Get current booking details
+            $stmt = $pdo->prepare("SELECT btschedule, status FROM bookings WHERE id = ?");
+            $stmt->execute([$booking_id]);
+            $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Check if cancellation is within 3 days
+            if ($new_status === 'Canceled') {
+                $event_date = new DateTime($booking['btschedule']);
+                $current_date = new DateTime();
+                $days_diff = $current_date->diff($event_date)->days;
+                
+                if ($days_diff < 3) {
+                    echo json_encode(['success' => false, 'message' => 'Cancellations are only allowed 3 days before the event']);
+                    exit;
+                }
+            }
+            
+            // Update status
+            $stmt = $pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?");
+            $stmt->execute([$new_status, $booking_id]);
+            
+            // If status is Completed or Canceled, move to archive (you might want to create an archived_bookings table)
+            if ($new_status === 'Completed' || $new_status === 'Canceled') {
+                // Here you can implement archiving logic if needed
+                // For now, we'll just update the status
+            }
+            
+            echo json_encode(['success' => true]);
+            exit;
+            
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+            exit;
+        }
+    }
+}
+
 // Fetch Customer Inquiries with Payment Data - FIXED QUERY
 function getBookings($pdo) {
     $stmt = $pdo->prepare("
@@ -46,9 +91,7 @@ function getBookings($pdo) {
             b.total_cost as TotalAmount
         FROM bookings b
         JOIN btuser u ON b.btuser_id = u.bt_user_id
-        LEFT JOIN sales s2 ON b.id = s2.booking_id
-        WHERE b.status NOT IN ('Canceled', 'Completed')
-        GROUP BY b.id, u.bt_first_name, u.bt_last_name, u.bt_email, b.total_cost
+        LEFT JOIN sales s ON b.id = s.booking_id
         ORDER BY b.btschedule DESC
         LIMIT 50
     ");
@@ -70,7 +113,6 @@ function getBookingAnalytics($pdo)
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Add this function with your other functions
 function getMonthlyBookings($pdo)
 {
     $stmt = $pdo->prepare("
@@ -85,7 +127,6 @@ function getMonthlyBookings($pdo)
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Add this with your other functions
 function getMonthDetails($pdo, $month, $year)
 {
     $stmt = $pdo->prepare("
@@ -102,7 +143,6 @@ function getMonthDetails($pdo, $month, $year)
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-// Add this after your other functions - FIXED THE AMBIGUOUS COLUMN ERROR
 function getArchivedBookings($pdo)
 {
     $stmt = $pdo->prepare("
@@ -151,6 +191,7 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Event Management Dashboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../assets_css/admin.css">
     <style>
         body {
@@ -184,156 +225,78 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
             color: #999;
             font-style: italic;
         }
-        
         /* Charts Section - Much Smaller Charts */
-        .charts-section {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
+.charts-section {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
 
-        .chart-card {
-            background: var(--card-bg);
-            border-radius: 8px;
-            padding: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            flex: 1;
-        }
+.chart-card {
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    flex: 1;
+}
 
-        .chart-card h4 {
-            margin: 0 0 8px 0;
-            font-size: 13px;
-            color: var(--highlight);
-            text-align: center;
-            font-weight: 600;
-        }
+.chart-card h4 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: var(--highlight);
+    text-align: center;
+    font-weight: 600;
+}
 
-        .chart-card canvas {
-            width: 100% !important;
-            height: 150px !important;
-            max-height: 150px;
-        }
+.chart-card canvas {
+    width: 100% !important;
+    height: 150px !important; /* Much smaller */
+    max-height: 150px;
+}
 
-        /* For extra small charts */
-        .charts-section.compact .chart-card canvas {
-            height: 120px !important;
-            max-height: 120px;
-        }
+/* For extra small charts */
+.charts-section.compact .chart-card canvas {
+    height: 120px !important;
+    max-height: 120px;
+}
 
-        /* If still too big, try this ultra-compact version */
-        .charts-section.ultra-compact {
-            gap: 10px;
-        }
+/* If still too big, try this ultra-compact version */
+.charts-section.ultra-compact {
+    gap: 10px;
+}
 
-        .charts-section.ultra-compact .chart-card {
-            padding: 8px;
-        }
+.charts-section.ultra-compact .chart-card {
+    padding: 8px;
+}
 
-        .charts-section.ultra-compact .chart-card canvas {
-            height: 100px !important;
-            max-height: 100px;
-        }
+.charts-section.ultra-compact .chart-card canvas {
+    height: 100px !important;
+    max-height: 100px;
+}
 
-        .charts-section.ultra-compact .chart-card h4 {
-            font-size: 12px;
-            margin-bottom: 5px;
-        }
-
-        .status-cell {
-            font-weight: bold;
-        }
-
-        /* Status colors */
-        .status-cell[data-status="Pending"] { color: #ff9800; }
-        .status-cell[data-status="Approved"] { color: #4caf50; }
-        .status-cell[data-status="Canceled"] { color: #f44336; }
-        .status-cell[data-status="Completed"] { color: #2196f3; }
-        
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            border-radius: 4px;
-            color: white;
-            z-index: 1000;
-            font-weight: bold;
-            transition: opacity 0.3s;
-        }
-        
-        .notification.success {
-            background-color: #4caf50;
-        }
-        
-        .notification.error {
-            background-color: #f44336;
-        }
-        
-        /* Month Navigation Styles */
-        .month-navigation {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-            margin: 20px 0;
-            padding: 15px;
-            background: var(--card-bg);
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .nav-btn {
-            padding: 10px 20px;
-            background: var(--highlight);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.3s;
-        }
-        
-        .nav-btn:hover {
-            background: var(--highlight-dark);
-        }
-        
-        .nav-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        
-        #currentMonthDisplay {
-            margin: 0;
-            font-size: 1.5em;
-            font-weight: bold;
-            color: var(--text-color);
-            min-width: 200px;
-            text-align: center;
-        }
-        
-        .loading {
-            opacity: 0.6;
-            pointer-events: none;
-        }
+.charts-section.ultra-compact .chart-card h4 {
+    font-size: 12px;
+    margin-bottom: 5px;
+}
     </style>
 </head>
 
 <body>
     <div class="dashboard-container">
-        <nav class="sidebar">
-            <div class="logo">
-                <h2>Admin Dashboard</h2>
-            </div>
-            <ul class="nav-menu">
-                <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="add_user.php">Admin Management</a></li>
-                <li><a href="user_management.php">User Management</a></li>
-                <li><a href="calendar.php">Calendar</a></li>
-                <li><a href="Inventory.php">Inventory</a></li>
-                <li><a href="admin_management.php">Edit</a></li>
-                <li><a href="Index.php?logout=true">Logout</a></li>
-            </ul>
-        </nav>
+    <nav class="sidebar">
+    <div class="logo">
+        <h2>Admin Dashboard</h2>
+    </div>
+    <ul class="nav-menu">
+        <li><a href="dashboard.php" >Dashboard</a></li>
+        <li><a href="add_user.php">Admin Management</a></li>
+        <li><a href="user_management">User Management</a></li>
+        <li><a href="calendar.php">Calendar</a></li>
+        <li><a href="Inventory.php">Inventory</a></li>
+        <li><a href="admin_management.php">Edit</a></li>
+        <li><a href="Index.php?logout=true">Logout</a></li>
+    </ul>
+</nav>
 
         <main class="main-content">
             <div class="analytics-section">
@@ -355,24 +318,23 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                 </div>
             </div>
 
-            <!-- Charts Row -->
-            <div class="charts-section">
-                <div class="chart-card">
-                    <h4>Event Bookings</h4>
-                    <canvas id="bookingChart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h4>Monthly Trends</h4>
-                    <canvas id="monthlyTrendChart"></canvas>
-                </div>
-            </div>
-            
-            <!-- Month Navigation -->
-            <div class="month-navigation">
-                <button id="prevMonth" class="nav-btn">&lt; Previous Month</button>
-                <h2 id="currentMonthDisplay"><?php echo date('F Y'); ?></h2>
-                <button id="nextMonth" class="nav-btn">Next Month &gt;</button>
-            </div>
+<!-- Charts Row -->
+<div class="charts-section">
+    <div class="chart-card">
+        <h4>Event Bookings</h4>
+        <canvas id="bookingChart"></canvas>
+    </div>
+    <div class="chart-card">
+        <h4>Monthly Trends</h4>
+        <canvas id="monthlyTrendChart"></canvas>
+    </div>
+</div>
+<!-- Month Navigation -->
+<div class="month-navigation">
+    <button id="prevMonth" class="nav-btn">&lt; Previous Month</button>
+    <h2 id="currentMonthDisplay"><?php echo date('F Y'); ?></h2>
+    <button id="nextMonth" class="nav-btn">Next Month &gt;</button>
+</div>
 
             <div class="table-header">
                 <h3>Active Inquiries</h3>
@@ -398,9 +360,9 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                     <?php foreach ($bookingData as $booking): ?>
                     <tr>
                         <td><?php echo htmlspecialchars($booking['bt_first_name'] . ' ' . $booking['bt_last_name']); ?></td>
-                        <td><?php echo htmlspecialchars($booking['btschedule']); ?></td>
+                        <td><?php echo htmlspecialchars($booking['btschedule']);?></td>
                         <td class="status-cell-<?php echo htmlspecialchars($booking['id']); ?>">
-                            <?php echo htmlspecialchars($booking['status']); ?>
+                        <?php echo htmlspecialchars($booking['status']); ?>
                         </td>
                         <td><?php echo htmlspecialchars($booking['btevent']); ?></td>
                         <td>
@@ -425,17 +387,17 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                             <?php endif; ?>
                         </td>
                         <td>
-                            <select class="status-select" onchange="updateStatus('<?php echo htmlspecialchars($booking['id']); ?>', this.value, event)">
-                                <option value="">Change Status</option>
-                                <?php
-                                    $statuses = ['Pending', 'Approved', 'Canceled', 'Completed'];
-                                    foreach ($statuses as $statusOption):
-                                        $selected = ($booking['status'] === $statusOption) ? 'selected' : '';
-                                ?>
-                                <option value="<?php echo $statusOption; ?>" <?php echo $selected; ?>>
-                                    <?php echo $statusOption; ?>
-                                </option>
-                                <?php endforeach; ?>
+                            <select class="status-select" onchange="updateStatus('<?php echo htmlspecialchars($booking['id']);?>', this.value)">
+                                <option value=""> Change Status</option>
+                                    <?php
+                                        $statuses = ['Pending', 'Approved', 'Canceled', 'Completed'];
+                                        foreach ($statuses as$statusOption):
+                                            $selected = ($booking['status'] === $statusOption) ? 'selected' :'';
+                                    ?>
+                                    <option value="<?php echo $statusOption; ?>" <?php echo $selected; ?>>
+                                        <?php echo $statusOption; ?>
+                                    </option>
+                                    <?php endforeach; ?>
                             </select>
                         </td>
                     </tr>
@@ -443,11 +405,99 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                 </tbody>
             </table>
 
+
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <script>    
                 // Booking Analytics Chart
                 const monthlyData = <?php echo json_encode($monthlyBookings); ?>;               
                 const bookingAnalytics = <?php echo json_encode($bookingAnalytics); ?>;
+                
+                // Status update variables
+                let pendingBookingId = null;
+                let pendingNewStatus = null;
+                
+                function confirmStatusChange(bookingId, newStatus) {
+                    pendingBookingId = bookingId;
+                    pendingNewStatus = newStatus;
+                    
+                    const modal = document.getElementById('confirmationModal');
+                    const title = document.getElementById('confirmationTitle');
+                    const message = document.getElementById('confirmationMessage');
+                    
+                    title.textContent = `Change to ${newStatus}`;
+                    message.textContent = `Are you sure you want to change this booking to ${newStatus}?`;
+                    
+                    modal.style.display = 'block';
+                }
+                
+                function updateStatus(bookingId, newStatus) {
+                    const formData = new FormData();
+                    formData.append('action', 'update_status');
+                    formData.append('booking_id', bookingId);
+                    formData.append('status', newStatus);
+                    
+                    fetch('', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload(); // Reload to show updated status
+                        } else {
+                            alert(data.message || 'Error updating status');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error updating status');
+                    });
+                }
+                
+                function toggleKebabMenu(button) {
+                    const dropdown = button.nextElementSibling;
+                    dropdown.classList.toggle('show');
+                    
+                    // Close other dropdowns
+                    document.querySelectorAll('.kebab-dropdown').forEach(drop => {
+                        if (drop !== dropdown) {
+                            drop.classList.remove('show');
+                        }
+                    });
+                }
+                
+                // Close dropdowns when clicking outside
+                document.addEventListener('click', function(event) {
+                    if (!event.target.matches('.kebab-btn')) {
+                        document.querySelectorAll('.kebab-dropdown').forEach(dropdown => {
+                            dropdown.classList.remove('show');
+                        });
+                    }
+                });
+                
+                // Confirmation modal handlers
+                document.getElementById('confirmYes').addEventListener('click', function() {
+                    if (pendingBookingId && pendingNewStatus) {
+                        updateStatus(pendingBookingId, pendingNewStatus);
+                    }
+                    document.getElementById('confirmationModal').style.display = 'none';
+                });
+                
+                document.getElementById('confirmNo').addEventListener('click', function() {
+                    document.getElementById('confirmationModal').style.display = 'none';
+                    pendingBookingId = null;
+                    pendingNewStatus = null;
+                });
+                
+                // Close modal when clicking outside
+                window.addEventListener('click', function(event) {
+                    const modal = document.getElementById('confirmationModal');
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                        pendingBookingId = null;
+                        pendingNewStatus = null;
+                    }
+                });
             </script>
             <script src="../asset_js/dashboard.js"></script>
   
@@ -476,7 +526,11 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                                 <tr>
                                     <td><?php echo htmlspecialchars($archived['bt_first_name'] . ' ' . $archived['bt_last_name']); ?></td>
                                     <td><?php echo htmlspecialchars($archived['btschedule']); ?></td>
-                                    <td><?php echo htmlspecialchars($archived['status']); ?></td>
+                                    <td>
+                                        <span class="status-badge status-<?php echo strtolower($archived['status']); ?>">
+                                            <?php echo htmlspecialchars($archived['status']); ?>
+                                        </span>
+                                    </td>
                                     <td><?php echo htmlspecialchars($archived['btevent']); ?></td>
                                     <td>
                                         <?php if (!empty($archived['GcashReferenceNo'])): ?>
