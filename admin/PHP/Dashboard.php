@@ -86,19 +86,20 @@ function getBookings($pdo) {
              ORDER BY s1.DateCreated DESC 
              LIMIT 1) as GcashReferenceNo,
             -- Get total amount paid across all payments
-            COALESCE(SUM(s2.AmountPaid), 0) as TotalAmountPaid,
+            COALESCE((SELECT SUM(s2.AmountPaid) 
+                     FROM sales s2 
+                     WHERE s2.booking_id = b.id), 0) as TotalAmountPaid,
             -- Get the total cost of the booking
             b.total_cost as TotalAmount
         FROM bookings b
         JOIN btuser u ON b.btuser_id = u.bt_user_id
-        LEFT JOIN sales s ON b.id = s.booking_id
+        WHERE b.status NOT IN ('Canceled', 'Completed')
         ORDER BY b.btschedule DESC
         LIMIT 50
     ");
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
-
 // Fetch Booking Analytics
 function getBookingAnalytics($pdo)
 {
