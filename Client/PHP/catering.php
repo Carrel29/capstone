@@ -45,12 +45,43 @@ $catering_packages = $pdo->query("SELECT * FROM catering_packages WHERE status =
 $catering_dishes = $pdo->query("SELECT * FROM catering_dishes WHERE status = 'active' ORDER BY category, name")->fetchAll();
 $catering_addons = $pdo->query("SELECT * FROM catering_addons WHERE status = 'active'")->fetchAll();
 
-// Group dishes by category
+// Temporary fix for missing image_path
+foreach ($catering_dishes as &$dish) {
+    if (!isset($dish['image_path'])) {
+        $dish['image_path'] = '../Img/menu.png';
+    }
+}
+unset($dish); // break the reference
+
+// Group dishes by category with proper handling
 $dishes_by_category = [];
+
 foreach ($catering_dishes as $dish) {
-    $category = $dish['category'] ?: 'Other';
+    $category = $dish['category'];
+    
+    // Fix null/empty categories and categorize properly
+    if (empty($category) || $category === 'null') {
+        // Determine category from dish name
+        $dishName = strtolower($dish['name']);
+        if (strpos($dishName, 'beef') !== false) {
+            $category = 'Beef';
+        } elseif (strpos($dishName, 'pork') !== false) {
+            $category = 'Pork';
+        } elseif (strpos($dishName, 'chicken') !== false) {
+            $category = 'Chicken';
+        } elseif (strpos($dishName, 'fish') !== false || strpos($dishName, 'shrimp') !== false) {
+            $category = 'Fish';
+        } else {
+            $category = 'Other';
+        }
+    }
+    
     $dishes_by_category[$category][] = $dish;
 }
+
+// Define category display order - INCLUDING ALL CATEGORIES
+$main_categories = ['Vegetables', 'Beef', 'Pork', 'Chicken', 'Fish', 'Seafood', 'Pasta'];
+$beverage_categories = ['Juice', 'Dessert', 'Soup', 'Appetizer'];
 
 // Initialize selected dishes and addons in session if not set
 if (!isset($_SESSION['selected_dishes'])) {
@@ -108,8 +139,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $selected_pasta = 0;
                 $selected_dessert = 0;
                 $selected_juice = 0;
+                $selected_soup = 0;
+                $selected_appetizer = 0;
                 
-                // Count selected dishes by category (only main dishes count toward the package limit)
+                // Count selected dishes by category
                 foreach ($selected_dishes as $dish_id) {
                     $dish = null;
                     foreach ($catering_dishes as $d) {
@@ -121,7 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     if ($dish) {
                         $category = strtolower($dish['category'] ?: '');
-                        if (in_array($category, ['meat', 'pork', 'chicken', 'fish', 'seafood', 'null', ''])) {
+                        
+                        // Count ALL meat types including beef
+                        if (in_array($category, ['meat', 'pork', 'chicken', 'fish', 'seafood', 'beef', 'null', ''])) {
                             $selected_meat++;
                         } else if ($category == 'vegetables') {
                             $selected_vegetables++;
@@ -131,6 +166,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $selected_dessert++;
                         } else if ($category == 'juice') {
                             $selected_juice++;
+                        } else if ($category == 'soup') {
+                            $selected_soup++;
+                        } else if ($category == 'appetizer') {
+                            $selected_appetizer++;
                         }
                     }
                 }
@@ -138,38 +177,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Count only main dishes for package validation
                 $main_dish_count = $selected_meat + $selected_vegetables + $selected_pasta;
                 
-                // Validate dessert and juice limits
-                if ($selected_dessert > 2) {
-                    throw new Exception("Maximum of 2 dessert selections allowed");
-                }
-                
-                if ($selected_juice > 2) {
-                    throw new Exception("Maximum of 2 juice selections allowed");
-                }
+                // REMOVED THE LIMIT VALIDATION FOR DESSERTS, JUICE, SOUP AND APPETIZER
+                // Users can now select as many as they want, they'll be charged extra
                 
                 // Validate main dish count matches package requirement
-                if ($main_dish_count != $dish_count) {
-                    throw new Exception("Please select exactly {$dish_count} main dishes (meat, vegetables, pasta)");
+                // Allow extra main dishes (they'll be charged extra)
+                $base_main_dish_count = $dish_count;
+                if ($main_dish_count < $base_main_dish_count) {
+                    throw new Exception("Please select at least {$base_main_dish_count} main dishes (meat, vegetables, pasta)");
                 }
                 
-                // Validate based on package rules (only main dishes)
-                $is_valid = false;
-                if ($dish_count == 5) {
-                    // 5-dish package: 1 vegetables + 4 meat OR 1 vegetables + 3 meat + 1 pasta
-                    if (($selected_vegetables == 1 && $selected_meat == 4 && $selected_pasta == 0) ||
-                        ($selected_vegetables == 1 && $selected_meat == 3 && $selected_pasta == 1)) {
-                        $is_valid = true;
-                    }
-                } else if ($dish_count == 4) {
-                    // 4-dish package: 1 vegetables + 3 meat OR 1 vegetables + 2 meat + 1 pasta
-                    if (($selected_vegetables == 1 && $selected_meat == 3 && $selected_pasta == 0) ||
-                        ($selected_vegetables == 1 && $selected_meat == 2 && $selected_pasta == 1)) {
-                        $is_valid = true;
-                    }
+                // Validate base package rules (only for the base number of dishes)
+                $base_meat = $selected_meat;
+                $base_vegetables = $selected_vegetables;
+                $base_pasta = $selected_pasta;
+                
+                // For validation, only consider the base number of dishes
+                if ($main_dish_count > $base_main_dish_count) {
+                    // User selected extra dishes - validate the base selection
+                    $is_valid = validateBaseSelection($base_main_dish_count, $base_meat, $base_vegetables, $base_pasta);
+                } else {
+                    // Normal selection - validate all
+                    $is_valid = validateBaseSelection($main_dish_count, $selected_meat, $selected_vegetables, $selected_pasta);
                 }
                 
                 if (!$is_valid) {
-                    throw new Exception("Invalid dish selection. Please follow the package rules.");
+                    throw new Exception("Invalid base dish selection. Please follow the package rules for the first {$base_main_dish_count} dishes.");
                 }
                 
                 // Update selected dishes in session
@@ -258,6 +291,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
+            // Calculate extra dish charges
+            if (!empty($_SESSION['selected_dishes'])) {
+                $base_dish_count = 0;
+                $selected_package = null;
+                foreach ($catering_packages as $package) {
+                    if ($package['id'] == $_SESSION['selected_package']) {
+                        $selected_package = $package;
+                        $base_dish_count = $package['dish_count'];
+                        break;
+                    }
+                }
+                
+                // Count main dishes and extras
+                $main_dish_count = 0;
+                $dessert_count = 0;
+                $juice_count = 0;
+                $soup_count = 0;
+                $appetizer_count = 0;
+                
+                foreach ($_SESSION['selected_dishes'] as $dish_id) {
+                    $dish = null;
+                    foreach ($catering_dishes as $d) {
+                        if ($d['id'] == $dish_id) {
+                            $dish = $d;
+                            break;
+                        }
+                    }
+                    
+                    if ($dish) {
+                        $category = strtolower($dish['category'] ?: '');
+                        if (in_array($category, ['meat', 'pork', 'chicken', 'fish', 'seafood', 'beef', 'vegetables', 'pasta'])) {
+                            $main_dish_count++;
+                        } else if ($category == 'dessert') {
+                            $dessert_count++;
+                        } else if ($category == 'juice') {
+                            $juice_count++;
+                        } else if ($category == 'soup') {
+                            $soup_count++;
+                        } else if ($category == 'appetizer') {
+                            $appetizer_count++;
+                        }
+                    }
+                }
+                
+                // Calculate extra charges
+                $extra_main_dishes = max(0, $main_dish_count - $base_dish_count);
+                $extra_desserts = max(0, $dessert_count - 2);
+                $extra_juices = max(0, $juice_count - 2);
+                $extra_soups = max(0, $soup_count - 1); // Base includes 1 soup
+                $extra_appetizers = max(0, $appetizer_count - 2); // Base includes 2 appetizers
+                
+                $catering_total += $extra_main_dishes * 5000; // ₱5,000 per extra main dish
+                $catering_total += $extra_desserts * 3000;    // ₱3,000 per extra dessert
+                $catering_total += $extra_juices * 2000;      // ₱2,000 per extra juice
+                $catering_total += $extra_soups * 3000;       // ₱3,000 per extra soup
+                $catering_total += $extra_appetizers * 2000;  // ₱2,000 per extra appetizer
+            }
+
             // Save selected dishes if submitted
             if (isset($_POST['dishes']) && is_array($_POST['dishes'])) {
                 $_SESSION['selected_dishes'] = $_POST['dishes'];
@@ -300,10 +391,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit();
 }
 
-// Calculate total price
+// Helper function to validate base dish selection
+function validateBaseSelection($dish_count, $meat, $vegetables, $pasta) {
+    if ($dish_count == 5) {
+        // 5-dish package: 1 vegetables + 4 meat OR 1 vegetables + 3 meat + 1 pasta
+        return ($vegetables == 1 && $meat == 4 && $pasta == 0) ||
+               ($vegetables == 1 && $meat == 3 && $pasta == 1);
+    } else if ($dish_count == 4) {
+        // 4-dish package: 1 vegetables + 3 meat OR 1 vegetables + 2 meat + 1 pasta
+        return ($vegetables == 1 && $meat == 3 && $pasta == 0) ||
+               ($vegetables == 1 && $meat == 2 && $pasta == 1);
+    }
+    return false;
+}
+
+// Calculate total price with extra charges
 $total_price = 0;
 $package_price = 0;
 $addons_price = 0;
+$extra_charges = 0;
 
 if (isset($_SESSION['selected_package'])) {
     foreach ($catering_packages as $package) {
@@ -312,6 +418,64 @@ if (isset($_SESSION['selected_package'])) {
             break;
         }
     }
+}
+
+// Calculate extra dish charges
+if (!empty($_SESSION['selected_dishes'])) {
+    $base_dish_count = 0;
+    $selected_package = null;
+    foreach ($catering_packages as $package) {
+        if ($package['id'] == $_SESSION['selected_package']) {
+            $selected_package = $package;
+            $base_dish_count = $package['dish_count'];
+            break;
+        }
+    }
+    
+    // Count main dishes and extras
+    $main_dish_count = 0;
+    $dessert_count = 0;
+    $juice_count = 0;
+    $soup_count = 0;
+    $appetizer_count = 0;
+    
+    foreach ($_SESSION['selected_dishes'] as $dish_id) {
+        $dish = null;
+        foreach ($catering_dishes as $d) {
+            if ($d['id'] == $dish_id) {
+                $dish = $d;
+                break;
+            }
+        }
+        
+        if ($dish) {
+            $category = strtolower($dish['category'] ?: '');
+            if (in_array($category, ['meat', 'pork', 'chicken', 'fish', 'seafood', 'beef', 'vegetables', 'pasta'])) {
+                $main_dish_count++;
+            } else if ($category == 'dessert') {
+                $dessert_count++;
+            } else if ($category == 'juice') {
+                $juice_count++;
+            } else if ($category == 'soup') {
+                $soup_count++;
+            } else if ($category == 'appetizer') {
+                $appetizer_count++;
+            }
+        }
+    }
+    
+    // Calculate extra charges
+    $extra_main_dishes = max(0, $main_dish_count - $base_dish_count);
+    $extra_desserts = max(0, $dessert_count - 2);
+    $extra_juices = max(0, $juice_count - 2);
+    $extra_soups = max(0, $soup_count - 1); // Base includes 1 soup
+    $extra_appetizers = max(0, $appetizer_count - 2); // Base includes 2 appetizers
+    
+    $extra_charges += $extra_main_dishes * 5000; // ₱5,000 per extra main dish
+    $extra_charges += $extra_desserts * 3000;    // ₱3,000 per extra dessert
+    $extra_charges += $extra_juices * 2000;      // ₱2,000 per extra juice
+    $extra_charges += $extra_soups * 3000;       // ₱3,000 per extra soup
+    $extra_charges += $extra_appetizers * 2000;  // ₱2,000 per extra appetizer
 }
 
 foreach ($_SESSION['selected_addons'] as $addon_id) {
@@ -323,7 +487,7 @@ foreach ($_SESSION['selected_addons'] as $addon_id) {
     }
 }
 
-$total_price = $package_price + $addons_price;
+$total_price = $package_price + $addons_price + $extra_charges;
 ?>
 
 <!DOCTYPE html>
@@ -476,7 +640,7 @@ $total_price = $package_price + $addons_price;
         
         .dishes-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 15px;
         }
         
@@ -487,6 +651,25 @@ $total_price = $package_price + $addons_price;
             padding: 15px;
             display: flex;
             align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .dish-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(141,110,99,0.2);
+        }
+        
+        .dish-image img {
+            transition: transform 0.3s ease;
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #e8e2da;
+        }
+        
+        .dish-item:hover .dish-image img {
+            transform: scale(1.05);
         }
         
         .dish-checkbox {
@@ -496,6 +679,7 @@ $total_price = $package_price + $addons_price;
         
         .dish-info {
             flex: 1;
+            margin-left: 15px;
         }
         
         .addons-section {
@@ -705,6 +889,19 @@ $total_price = $package_price + $addons_price;
                 flex-direction: column;
                 align-items: center;
             }
+            
+            .dish-item {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .dish-image {
+                margin-bottom: 10px;
+            }
+            
+            .dish-info {
+                margin-left: 0;
+            }
         }
         
     </style>
@@ -775,12 +972,18 @@ $total_price = $package_price + $addons_price;
                 <li><strong>5 Main Dishes Package:</strong> Must choose either 1 vegetables + 4 meat, OR 1 vegetables + 3 meat + 1 pasta</li>
                 <li><strong>4 Main Dishes Package:</strong> Must choose either 1 vegetables + 3 meat, OR 1 vegetables + 2 meat + 1 pasta</li>
                 <li>Steamed rice is included by default</li>
-                <li><strong>Beverages & Desserts (Separate from main dishes):</strong></li>
-                <li>Maximum of 2 dessert selections</li>
-                <li>Maximum of 2 juice selections</li>
+                <li><strong>Beverages & Desserts:</strong></li>
+                <li>Base package includes up to 2 dessert selections</li>
+                <li>Base package includes up to 2 juice selections</li>
+                <li><strong>Soups & Appetizers:</strong></li>
+                <li>Base package includes up to 1 soup selection</li>
+                <li>Base package includes up to 2 appetizer selections</li>
+                <li><strong>Extra selections available:</strong></li>
                 <li>Extra dessert: +₱3,000 per additional selection</li>
                 <li>Extra juice: +₱2,000 per additional selection</li>
-                <li>Extra dish: +₱5,000 per additional dish</li>
+                <li>Extra soup: +₱3,000 per additional selection</li>
+                <li>Extra appetizer: +₱2,000 per additional selection</li>
+                <li>Extra main dish: +₱5,000 per additional dish</li>
             </ul>
         </div>
 
@@ -805,6 +1008,8 @@ $total_price = $package_price + $addons_price;
                 $selected_pasta = 0;
                 $selected_dessert = 0;
                 $selected_juice = 0;
+                $selected_soup = 0;
+                $selected_appetizer = 0;
                 
                 foreach ($_SESSION['selected_dishes'] as $dish_id) {
                     $dish = null;
@@ -817,7 +1022,7 @@ $total_price = $package_price + $addons_price;
                     
                     if ($dish) {
                         $category = strtolower($dish['category'] ?: '');
-                        if (in_array($category, ['meat', 'pork', 'chicken', 'fish', 'seafood', 'null', ''])) {
+                        if (in_array($category, ['meat', 'pork', 'chicken', 'fish', 'seafood', 'beef', 'null', ''])) {
                             $selected_meat++;
                         } else if ($category == 'vegetables') {
                             $selected_vegetables++;
@@ -827,6 +1032,10 @@ $total_price = $package_price + $addons_price;
                             $selected_dessert++;
                         } else if ($category == 'juice') {
                             $selected_juice++;
+                        } else if ($category == 'soup') {
+                            $selected_soup++;
+                        } else if ($category == 'appetizer') {
+                            $selected_appetizer++;
                         }
                     }
                 }
@@ -839,17 +1048,19 @@ $total_price = $package_price + $addons_price;
                 <div class="selection-status" id="selectionStatus">
                     <strong>Main Dishes:</strong> <span id="mainDishCount"><?php echo $main_dish_count; ?></span>/<span id="requiredTotal"><?php echo $required_total; ?></span> 
                     (Meat: <span id="meatCount"><?php echo $selected_meat; ?></span>, 
-                    vegetables: <span id="vegetablesCount"><?php echo $selected_vegetables; ?></span>, 
+                    Vegetables: <span id="vegetablesCount"><?php echo $selected_vegetables; ?></span>, 
                     Pasta: <span id="pastaCount"><?php echo $selected_pasta; ?></span>)<br>
                     <strong>Beverages & Desserts:</strong> 
                     Dessert: <span id="dessertCount"><?php echo $selected_dessert; ?></span>/2,
-                    Juice: <span id="juiceCount"><?php echo $selected_juice; ?></span>/2
+                    Juice: <span id="juiceCount"><?php echo $selected_juice; ?></span>/2<br>
+                    <strong>Soups & Appetizers:</strong>
+                    Soup: <span id="soupCount"><?php echo $selected_soup; ?></span>/1,
+                    Appetizer: <span id="appetizerCount"><?php echo $selected_appetizer; ?></span>/2
                 </div>
                 
-  <div class="instruction-text" style="background: #e3f2fd; color: #1565c0; padding: 10px; border-radius: 5px; margin: 10px 0; border-left: 4px solid #2196f3;">
-        <strong>💡 Important:</strong> Please click the <strong>"Update Dish Selection"</strong> button after selecting your dishes to save your choices.
-    </div>
-
+                <div class="instruction-text" style="background: #e3f2fd; color: #1565c0; padding: 10px; border-radius: 5px; margin: 10px 0; border-left: 4px solid #2196f3;">
+                    <strong>💡 Important:</strong> Please click the <strong>"Update Dish Selection"</strong> button after selecting your dishes to save your choices.
+                </div>
 
                 <form method="POST" id="dishForm">
                     <!-- Main Dishes Section -->
@@ -857,125 +1068,104 @@ $total_price = $package_price + $addons_price;
                         <h3 style="color: #6d4c41; margin-top: 0;">Main Dishes (Select <?php echo $required_total; ?> dishes)</h3>
                         
                         <?php 
-                        // Define main dish categories in the correct order with proper handling
-                        $main_categories = ['Vegetables', 'Meat', 'Pork', 'Chicken', 'Fish', 'Seafood', 'Pasta'];
-                        
-                        foreach ($main_categories as $category): ?>
-                            <?php 
-                            // Check if this category exists in our grouped dishes
-                            $category_exists = false;
-                            foreach ($dishes_by_category as $cat => $dishes) {
-                                if (strtolower($cat) === strtolower($category)) {
-                                    $category_exists = true;
-                                    break;
-                                }
-                            }
-                            ?>
-                            <?php if ($category_exists): ?>
+                        // Display main dish categories in specific order
+                        foreach ($main_categories as $category): 
+                            if (isset($dishes_by_category[$category])): ?>
                                 <div class="dishes-category">
                                     <h4><?php echo htmlspecialchars($category); ?></h4>
                                     <div class="dishes-grid">
-                                        <?php 
-                                        // Find the actual category name as stored in the database
-                                        $actual_category = '';
-                                        foreach ($dishes_by_category as $cat => $dishes) {
-                                            if (strtolower($cat) === strtolower($category)) {
-                                                $actual_category = $cat;
-                                                break;
+                                        <?php foreach ($dishes_by_category[$category] as $dish): ?>
+                                            <?php
+                                            // Determine the category group for validation
+                                            $original_category = strtolower($dish['category'] ?: '');
+                                            $category_group = $original_category;
+
+                                            // DEBUG: Show what's happening
+                                            $debug_info = "Original: '$original_category', Final: '$category_group'";
+
+                                            // Group all meat types including beef under 'meat' for counting
+                                            if (in_array($original_category, ['beef', 'pork', 'chicken', 'fish', 'seafood', ''])) {
+                                                $category_group = 'meat';
+                                                $debug_info = "Original: '$original_category', Final: meat (CONVERTED)";
                                             }
-                                        }
-                                        ?>
-                                        <?php if ($actual_category && isset($dishes_by_category[$actual_category])): ?>
-                                            <?php foreach ($dishes_by_category[$actual_category] as $dish): ?>
-                                                <?php
-                                                // Determine the category group for validation
-                                                $category_group = 'other';
-                                                $dish_category = strtolower($dish['category'] ?: '');
-                                                if (in_array($dish_category, ['meat', 'pork', 'chicken', 'fish', 'seafood', 'null', ''])) {
-                                                    $category_group = 'meat';
-                                                } else if ($dish_category == 'vegetables') {
-                                                    $category_group = 'vegetables';
-                                                } else if ($dish_category == 'pasta') {
-                                                    $category_group = 'pasta';
-                                                }
-                                                ?>
-                                                <div class="dish-item">
-                                                    <input type="checkbox" 
-                                                           id="dish_<?php echo $dish['id']; ?>" 
-                                                           name="dishes[]" 
-                                                           value="<?php echo $dish['id']; ?>" 
-                                                           class="dish-checkbox main-dish"
-                                                           data-category="<?php echo $category_group; ?>"
-                                                           <?php echo in_array($dish['id'], $_SESSION['selected_dishes']) ? 'checked' : ''; ?>>
-                                                    <div class="dish-info">
-                                                        <h4><?php echo htmlspecialchars($dish['name']); ?></h4>
-                                                        <?php if (!empty($dish['description'])): ?>
-                                                        <p><?php echo htmlspecialchars($dish['description']); ?></p>
-                                                        <?php endif; ?>
-                                                        <?php if ($dish['is_default']): ?>
-                                                        <p><em>✓ Included by default</em></p>
-                                                        <?php endif; ?>
-                                                    </div>
+
+                                            // Ensure we never have an empty category
+                                            if (empty($category_group)) {
+                                                $category_group = 'meat';
+                                                $debug_info = "Original: '$original_category', Final: meat (FIXED EMPTY)";
+                                            }
+                                            ?>
+                                            <div class="dish-item">
+                                                <input type="checkbox" 
+                                                       id="dish_<?php echo $dish['id']; ?>" 
+                                                       name="dishes[]" 
+                                                       value="<?php echo $dish['id']; ?>" 
+                                                       class="dish-checkbox main-dish"
+                                                       data-category="<?php echo $category_group; ?>"
+                                                       <?php echo in_array($dish['id'], $_SESSION['selected_dishes']) ? 'checked' : ''; ?>>
+                                                
+                                                <!-- Dish Image -->
+                                                <div class="dish-image">
+                                                    <img src="<?php echo htmlspecialchars($dish['image_path'] ?? '../Img/menu.png'); ?>" 
+                                                         alt="<?php echo htmlspecialchars($dish['name']); ?>"
+                                                         onerror="this.src='../Img/menu.png'">
                                                 </div>
-                                            <?php endforeach; ?>
-                                        <?php endif; ?>
+                                                
+                                                <div class="dish-info">
+                                                    <h4><?php echo htmlspecialchars($dish['name']); ?></h4>
+                                                    <?php if (!empty($dish['description'])): ?>
+                                                    <p><?php echo htmlspecialchars($dish['description']); ?></p>
+                                                    <?php endif; ?>
+                                                    <!-- DEBUG INFO -->
+                                              <!-- DEBUG INFO      <p style="color: white; font-size: 0.8em;"><?php echo $debug_info; ?></p> -->
+                                                    <?php if ($dish['is_default']): ?>
+                                                    <p><em>✓ Best Choice</em></p>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
                                     </div>
                                 </div>
                             <?php endif; ?>
                         <?php endforeach; ?>
                     </div>
                     
-                    <!-- Beverages & Desserts Section -->
+                    <!-- Beverages, Desserts, Soups & Appetizers Section -->
                     <div class="category-section beverages-desserts">
-                        <h3 style="color: #6d4c41; margin-top: 0;">Beverages & Desserts (Optional - Separate from main dishes)</h3>
+                        <h3 style="color: #6d4c41; margin-top: 0;">Beverages, Desserts, Soups & Appetizers (Optional)</h3>
                         
                         <?php 
-                        $beverage_categories = ['Juice', 'Dessert'];
-                        
-                        foreach ($beverage_categories as $category): ?>
-                            <?php 
-                            // Check if this category exists in our grouped dishes
-                            $category_exists = false;
-                            foreach ($dishes_by_category as $cat => $dishes) {
-                                if (strtolower($cat) === strtolower($category)) {
-                                    $category_exists = true;
-                                    break;
-                                }
-                            }
-                            ?>
-                            <?php if ($category_exists): ?>
+                        // Display all optional categories
+                        foreach ($beverage_categories as $category): 
+                            if (isset($dishes_by_category[$category])): ?>
                                 <div class="dishes-category">
                                     <h4><?php echo htmlspecialchars($category); ?></h4>
                                     <div class="dishes-grid">
-                                        <?php 
-                                        // Find the actual category name as stored in the database
-                                        $actual_category = '';
-                                        foreach ($dishes_by_category as $cat => $dishes) {
-                                            if (strtolower($cat) === strtolower($category)) {
-                                                $actual_category = $cat;
-                                                break;
-                                            }
-                                        }
-                                        ?>
-                                        <?php if ($actual_category && isset($dishes_by_category[$actual_category])): ?>
-                                            <?php foreach ($dishes_by_category[$actual_category] as $dish): ?>
-                                                <div class="dish-item">
-                                                    <input type="checkbox" 
-                                                           id="dish_<?php echo $dish['id']; ?>" 
-                                                           name="dishes[]" 
-                                                           value="<?php echo $dish['id']; ?>" 
-                                                           class="dish-checkbox beverage-dessert"
-                                                           data-category="<?php echo strtolower($category); ?>"
-                                                           <?php echo in_array($dish['id'], $_SESSION['selected_dishes']) ? 'checked' : ''; ?>>
-                                                    <div class="dish-info">
-                                                        <h4><?php echo htmlspecialchars($dish['name']); ?></h4>
-                                                        <?php if (!empty($dish['description'])): ?>
-                                                        <p><?php echo htmlspecialchars($dish['description']); ?></p>
-                                                        <?php endif; ?>
-                                                    </div>
+                                        <?php foreach ($dishes_by_category[$category] as $dish): ?>
+                                            <div class="dish-item">
+                                                <input type="checkbox" 
+                                                       id="dish_<?php echo $dish['id']; ?>" 
+                                                       name="dishes[]" 
+                                                       value="<?php echo $dish['id']; ?>" 
+                                                       class="dish-checkbox beverage-dessert"
+                                                       data-category="<?php echo strtolower($category); ?>"
+                                                       <?php echo in_array($dish['id'], $_SESSION['selected_dishes']) ? 'checked' : ''; ?>>
+                                                
+                                                <!-- Dish Image -->
+                                                <div class="dish-image">
+                                                    <img src="<?php echo htmlspecialchars($dish['image_path'] ?? '../Img/menu.png'); ?>" 
+                                                         alt="<?php echo htmlspecialchars($dish['name']); ?>"
+                                                         onerror="this.src='../Img/menu.png'">
                                                 </div>
-                                            <?php endforeach; ?>
-                                        <?php endif; ?>
+                                                
+                                                <div class="dish-info">
+                                                    <h4><?php echo htmlspecialchars($dish['name']); ?></h4>
+                                                    <?php if (!empty($dish['description'])): ?>
+                                                    <p><?php echo htmlspecialchars($dish['description']); ?></p>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
                                     </div>
                                 </div>
                             <?php endif; ?>
@@ -1040,7 +1230,16 @@ $total_price = $package_price + $addons_price;
                 
                 <?php if (!empty($_SESSION['selected_dishes'])): ?>
                     <h4>Selected Dishes:</h4>
-                    <?php foreach ($_SESSION['selected_dishes'] as $dish_id): ?>
+                    <?php 
+                    // Calculate extras for display
+                    $base_dish_count = $selected_package['dish_count'];
+                    $main_dish_count = 0;
+                    $dessert_count = 0;
+                    $juice_count = 0;
+                    $soup_count = 0;
+                    $appetizer_count = 0;
+                    
+                    foreach ($_SESSION['selected_dishes'] as $dish_id): ?>
                         <?php
                         $dish = null;
                         foreach ($catering_dishes as $d) {
@@ -1051,9 +1250,57 @@ $total_price = $package_price + $addons_price;
                         }
                         ?>
                         <?php if ($dish): ?>
+                            <?php
+                            $category = strtolower($dish['category'] ?: '');
+                            $is_extra = false;
+                            $extra_charge = 0;
+                            
+                            if (in_array($category, ['meat', 'pork', 'chicken', 'fish', 'seafood', 'beef', 'vegetables', 'pasta'])) {
+                                $main_dish_count++;
+                                if ($main_dish_count > $base_dish_count) {
+                                    $is_extra = true;
+                                    $extra_charge = 5000;
+                                }
+                            } else if ($category == 'dessert') {
+                                $dessert_count++;
+                                if ($dessert_count > 2) {
+                                    $is_extra = true;
+                                    $extra_charge = 3000;
+                                }
+                            } else if ($category == 'juice') {
+                                $juice_count++;
+                                if ($juice_count > 2) {
+                                    $is_extra = true;
+                                    $extra_charge = 2000;
+                                }
+                            } else if ($category == 'soup') {
+                                $soup_count++;
+                                if ($soup_count > 1) {
+                                    $is_extra = true;
+                                    $extra_charge = 3000;
+                                }
+                            } else if ($category == 'appetizer') {
+                                $appetizer_count++;
+                                if ($appetizer_count > 2) {
+                                    $is_extra = true;
+                                    $extra_charge = 2000;
+                                }
+                            }
+                            ?>
                             <div class="receipt-item">
-                                <span><?php echo htmlspecialchars($dish['name']); ?> (<?php echo htmlspecialchars($dish['category'] ?: 'Main'); ?>)</span>
-                                <span>Included</span>
+                                <span>
+                                    <?php echo htmlspecialchars($dish['name']); ?> (<?php echo htmlspecialchars($dish['category'] ?: 'Main'); ?>)
+                                    <?php if ($is_extra): ?>
+                                        <span style="color: #ff9800; font-weight: bold;">[EXTRA]</span>
+                                    <?php endif; ?>
+                                </span>
+                                <span>
+                                    <?php if ($is_extra): ?>
+                                        ₱<?php echo number_format($extra_charge, 2); ?>
+                                    <?php else: ?>
+                                        Included
+                                    <?php endif; ?>
+                                </span>
                             </div>
                         <?php endif; ?>
                     <?php endforeach; ?>
@@ -1078,6 +1325,13 @@ $total_price = $package_price + $addons_price;
                             </div>
                         <?php endif; ?>
                     <?php endforeach; ?>
+                <?php endif; ?>
+                
+                <?php if ($extra_charges > 0): ?>
+                    <div class="receipt-item" style="border-top: 2px dashed #8d6e63; padding-top: 10px;">
+                        <span><strong>Extra Selection Charges:</strong></span>
+                        <span>₱<?php echo number_format($extra_charges, 2); ?></span>
+                    </div>
                 <?php endif; ?>
                 
                 <div class="receipt-total">
@@ -1146,31 +1400,41 @@ $total_price = $package_price + $addons_price;
                 let pastaCount = 0;
                 let dessertCount = 0;
                 let juiceCount = 0;
+                let soupCount = 0;
+                let appetizerCount = 0;
                 let mainDishCount = 0;
+                
+                console.log('=== STARTING COUNT ===');
                 
                 checkboxes.forEach(checkbox => {
                     if (checkbox.checked) {
                         const category = checkbox.getAttribute('data-category');
+                        const dishId = checkbox.value;
+                        const dishName = checkbox.closest('.dish-item').querySelector('h4').textContent;
                         
-                        switch(category) {
-                            case 'meat': 
-                                meatCount++; 
-                                mainDishCount++;
-                                break;
-                            case 'vegetables': 
-                                vegetablesCount++; 
-                                mainDishCount++;
-                                break;
-                            case 'pasta': 
-                                pastaCount++; 
-                                mainDishCount++;
-                                break;
-                            case 'dessert': 
-                                dessertCount++; 
-                                break;
-                            case 'juice': 
-                                juiceCount++; 
-                                break;
+                        console.log('Checked:', dishName, 'Category:', category, 'ID:', dishId);
+                        
+                        // Count all meat types including beef - handle empty categories too
+                        if (['meat', 'beef', 'pork', 'chicken', 'fish', 'seafood', ''].includes(category)) {
+                            meatCount++; 
+                            mainDishCount++;
+                            console.log('✓ Counted as MEAT:', dishName, 'Category was:', category);
+                        } else if (category === 'vegetables') { 
+                            vegetablesCount++; 
+                            mainDishCount++;
+                        } else if (category === 'pasta') { 
+                            pastaCount++; 
+                            mainDishCount++;
+                        } else if (category === 'dessert') { 
+                            dessertCount++; 
+                        } else if (category === 'juice') { 
+                            juiceCount++; 
+                        } else if (category === 'soup') { 
+                            soupCount++; 
+                        } else if (category === 'appetizer') { 
+                            appetizerCount++; 
+                        } else {
+                            console.log('⚠️ UNCATEGORIZED:', dishName, 'Category:', category);
                         }
                     }
                 });
@@ -1183,7 +1447,13 @@ $total_price = $package_price + $addons_price;
                     document.getElementById('pastaCount').textContent = pastaCount;
                     document.getElementById('dessertCount').textContent = dessertCount;
                     document.getElementById('juiceCount').textContent = juiceCount;
+                    document.getElementById('soupCount').textContent = soupCount;
+                    document.getElementById('appetizerCount').textContent = appetizerCount;
                 }
+                
+                console.log('=== FINAL COUNTS ===');
+                console.log('Meat:', meatCount, 'Main Dishes:', mainDishCount);
+                console.log('====================');
             }
             
             function validateSelections() {
@@ -1193,75 +1463,44 @@ $total_price = $package_price + $addons_price;
                 const pastaCount = parseInt(document.getElementById('pastaCount').textContent);
                 const dessertCount = parseInt(document.getElementById('dessertCount').textContent);
                 const juiceCount = parseInt(document.getElementById('juiceCount').textContent);
+                const soupCount = parseInt(document.getElementById('soupCount').textContent);
+                const appetizerCount = parseInt(document.getElementById('appetizerCount').textContent);
                 
                 // Enable all checkboxes first
                 checkboxes.forEach(checkbox => {
                     checkbox.disabled = false;
                 });
                 
-                // Disable checkboxes based on limits
+                // REMOVED THE DISABLING LOGIC FOR BEVERAGES, DESSERTS, SOUPS AND APPETIZERS
+                // Users can now select unlimited extras
+                
+                // Only disable main dishes if they don't meet the base requirements
                 checkboxes.forEach(checkbox => {
                     const category = checkbox.getAttribute('data-category');
                     const isChecked = checkbox.checked;
                     const isMainDish = checkbox.classList.contains('main-dish');
-                    const isBeverageDessert = checkbox.classList.contains('beverage-dessert');
                     
-                    if (!isChecked) {
-                        // Main dish limits
-                        if (isMainDish) {
-                            if (mainDishCount >= requiredTotal) {
-                                checkbox.disabled = true;
-                            }
-                            // Package-specific rules for main dishes
-                            else if (requiredTotal === 5) {
-                                // 5-dish package rules
-                                if (category === 'vegetables' && vegetablesCount >= 1) {
-                                    checkbox.disabled = true;
-                                }
-                                else if (category === 'pasta' && pastaCount >= 1) {
-                                    checkbox.disabled = true;
-                                }
-                                else if (category === 'meat') {
-                                    if ((vegetablesCount === 1 && pastaCount === 0 && meatCount >= 4) ||
-                                        (vegetablesCount === 1 && pastaCount === 1 && meatCount >= 3)) {
-                                        checkbox.disabled = true;
-                                    }
-                                }
-                            }
-                            else if (requiredTotal === 4) {
-                                // 4-dish package rules
-                                if (category === 'vegetables' && vegetablesCount >= 1) {
-                                    checkbox.disabled = true;
-                                }
-                                else if (category === 'pasta' && pastaCount >= 1) {
-                                    checkbox.disabled = true;
-                                }
-                                else if (category === 'meat') {
-                                    if ((vegetablesCount === 1 && pastaCount === 0 && meatCount >= 3) ||
-                                        (vegetablesCount === 1 && pastaCount === 1 && meatCount >= 2)) {
-                                        checkbox.disabled = true;
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Beverage and dessert limits (separate from main dishes)
-                        if (isBeverageDessert) {
-                            if (category === 'dessert' && dessertCount >= 2) {
-                                checkbox.disabled = true;
-                            }
-                            else if (category === 'juice' && juiceCount >= 2) {
-                                checkbox.disabled = true;
+                    if (!isChecked && isMainDish) {
+                        // For main dishes, only disable if base requirements aren't met
+                        if (mainDishCount < requiredTotal) {
+                            // Still need to reach base requirement
+                            if (category === 'vegetables' && vegetablesCount >= 1 && mainDishCount < requiredTotal) {
+                                // Don't disable vegetables if we still need to reach base count
+                            } else if (category === 'pasta' && pastaCount >= 1 && mainDishCount < requiredTotal) {
+                                // Don't disable pasta if we still need to reach base count
                             }
                         }
                     }
                 });
                 
                 // Update selection status color based on validity
-                const mainDishesValid = validateMainDishRules(mainDishCount, meatCount, vegetablesCount, pastaCount, requiredTotal);
-                const beveragesValid = (dessertCount <= 2 && juiceCount <= 2);
+                const baseMainDishesValid = validateBaseMainDishRules(Math.min(mainDishCount, requiredTotal), 
+                                                                     Math.min(meatCount, requiredTotal), 
+                                                                     Math.min(vegetablesCount, 1), 
+                                                                     Math.min(pastaCount, 1), 
+                                                                     requiredTotal);
                 
-                if (mainDishesValid && beveragesValid) {
+                if (baseMainDishesValid) {
                     selectionStatus.style.backgroundColor = '#e8f5e8';
                     selectionStatus.style.color = '#2e7d32';
                     selectionStatus.classList.remove('invalid');
@@ -1273,45 +1512,72 @@ $total_price = $package_price + $addons_price;
                 
                 // Show specific error messages
                 let errorMessage = '';
-                if (!mainDishesValid) {
-                    if (mainDishCount !== requiredTotal) {
-                        errorMessage = `Please select exactly ${requiredTotal} main dishes. `;
+                if (!baseMainDishesValid) {
+                    if (mainDishCount < requiredTotal) {
+                        errorMessage = `Please select at least ${requiredTotal} main dishes. `;
                     } else {
-                        errorMessage = 'Main dish selection does not follow package rules. ';
+                        errorMessage = 'Base main dish selection does not follow package rules. ';
                     }
                 }
-                if (!beveragesValid) {
-                    if (dessertCount > 2) errorMessage += 'Maximum 2 desserts allowed. ';
-                    if (juiceCount > 2) errorMessage += 'Maximum 2 juices allowed. ';
+                
+                // Show extra selection info
+                let extraMessage = '';
+                const extraMainDishes = Math.max(0, mainDishCount - requiredTotal);
+                const extraDesserts = Math.max(0, dessertCount - 2);
+                const extraJuices = Math.max(0, juiceCount - 2);
+                const extraSoups = Math.max(0, soupCount - 1);
+                const extraAppetizers = Math.max(0, appetizerCount - 2);
+                
+                if (extraMainDishes > 0 || extraDesserts > 0 || extraJuices > 0 || extraSoups > 0 || extraAppetizers > 0) {
+                    extraMessage = 'Extra selections: ';
+                    if (extraMainDishes > 0) extraMessage += `${extraMainDishes} main dish(es) `;
+                    if (extraDesserts > 0) extraMessage += `${extraDesserts} dessert(s) `;
+                    if (extraJuices > 0) extraMessage += `${extraJuices} juice(s) `;
+                    if (extraSoups > 0) extraMessage += `${extraSoups} soup(s) `;
+                    if (extraAppetizers > 0) extraMessage += `${extraAppetizers} appetizer(s) `;
+                    extraMessage += '- will be charged extra';
                 }
                 
-                // Add error message to status if needed
+                // Add messages to status if needed
                 const existingError = selectionStatus.querySelector('.error-message');
-                if (existingError) {
-                    existingError.remove();
-                }
+                const existingExtra = selectionStatus.querySelector('.extra-message');
+                
+                if (existingError) existingError.remove();
+                if (existingExtra) existingExtra.remove();
                 
                 if (errorMessage) {
                     const errorElement = document.createElement('div');
                     errorElement.className = 'error-message';
                     errorElement.style.fontSize = '0.9em';
                     errorElement.style.marginTop = '5px';
+                    errorElement.style.color = '#c62828';
                     errorElement.textContent = errorMessage;
                     selectionStatus.appendChild(errorElement);
                 }
+                
+                if (extraMessage) {
+                    const extraElement = document.createElement('div');
+                    extraElement.className = 'extra-message';
+                    extraElement.style.fontSize = '0.9em';
+                    extraElement.style.marginTop = '5px';
+                    extraElement.style.color = '#ff9800';
+                    extraElement.textContent = extraMessage;
+                    selectionStatus.appendChild(extraElement);
+                }
             }
             
-            function validateMainDishRules(total, meat, vegetables, pasta, required) {
-                if (total !== required) {
+            function validateBaseMainDishRules(total, meat, vegetables, pasta, required) {
+                if (total < required) {
                     return false;
                 }
                 
+                // Only validate the base required number of dishes
                 if (required === 5) {
-                    return (vegetables === 1 && meat === 4 && pasta === 0) || 
-                           (vegetables === 1 && meat === 3 && pasta === 1);
+                    return (vegetables === 1 && meat >= 4) || 
+                           (vegetables === 1 && meat >= 3 && pasta >= 1);
                 } else if (required === 4) {
-                    return (vegetables === 1 && meat === 3 && pasta === 0) || 
-                           (vegetables === 1 && meat === 2 && pasta === 1);
+                    return (vegetables === 1 && meat >= 3) || 
+                           (vegetables === 1 && meat >= 2 && pasta >= 1);
                 }
                 return false;
             }

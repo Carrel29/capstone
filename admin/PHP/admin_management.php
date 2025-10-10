@@ -22,6 +22,17 @@ try {
     die("Database Connection Failed: " . $e->getMessage());
 }
 
+// Fix for missing image_path column in archived_catering_dishes
+try {
+    $checkColumn = $pdo->query("SHOW COLUMNS FROM archived_catering_dishes LIKE 'image_path'")->fetch();
+    if (!$checkColumn) {
+        $pdo->exec("ALTER TABLE archived_catering_dishes ADD COLUMN image_path VARCHAR(500)");
+    }
+} catch (Exception $e) {
+    // Table might not exist yet, it will be created with the correct structure
+}
+
+
 // Create services content table for website services
 $pdo->exec("
     CREATE TABLE IF NOT EXISTS services_content (
@@ -58,40 +69,22 @@ function getAdminImagePath($image_path) {
     
     // If path starts with ../Img/, convert to admin accessible path
     if (strpos($image_path, '../Img/') === 0) {
-        return '../client/Img/' . substr($image_path, 7);
+        return '../../client/Img/' . substr($image_path, 7);
     }
     
     // If path starts with Img/, convert to admin accessible path
     if (strpos($image_path, 'Img/') === 0) {
-        return '../client/Img/' . substr($image_path, 4);
+        return '../../client/Img/' . substr($image_path, 4);
     }
     
     return $image_path;
 }
 
-
-// Handle file upload - Robust flexible approach
-function handleFileUpload($file, $service_name) {
+// Handle file upload - Updated for your folder structure
+function handleFileUpload($file, $item_name) {
     if ($file['error'] === UPLOAD_ERR_OK) {
-        // Multiple path resolution strategies
-        $possiblePaths = [
-            dirname(dirname(__DIR__)) . '/client/Img/', // Project root approach
-            __DIR__ . '/../../client/Img/', // Relative from admin/php
-            $_SERVER['DOCUMENT_ROOT'] . '/' . basename(dirname(dirname(__DIR__))) . '/client/Img/' // Document root approach
-        ];
-        
-        $uploadDir = null;
-        foreach ($possiblePaths as $path) {
-            if (is_dir(dirname($path))) {
-                $uploadDir = $path;
-                break;
-            }
-        }
-        
-        // Fallback to relative path if all else fails
-        if (!$uploadDir) {
-            $uploadDir = __DIR__ . '/../../client/Img/';
-        }
+        // Upload to client/img directory
+        $uploadDir = __DIR__ . '/../../client/Img/';
         
         // Create directory if it doesn't exist
         if (!is_dir($uploadDir)) {
@@ -100,13 +93,13 @@ function handleFileUpload($file, $service_name) {
         
         // Generate unique filename
         $fileExtension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $safeServiceName = preg_replace('/[^a-zA-Z0-9]/', '_', $service_name);
-        $filename = $safeServiceName . '_' . time() . '.' . $fileExtension;
+        $safeItemName = preg_replace('/[^a-zA-Z0-9]/', '_', $item_name);
+        $filename = $safeItemName . '_' . time() . '.' . $fileExtension;
         $uploadPath = $uploadDir . $filename;
         
         // Move uploaded file
         if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
-            // Return path that index.php can use
+            // Return path that client/catering.php can use
             return '../Img/' . $filename;
         }
     }
@@ -253,6 +246,7 @@ $pdo->exec("
         category ENUM('Pork','Chicken','Beef','Fish','Vegetables','Pasta','Dessert','Juice','Soup','Appetizer') NOT NULL,
         description TEXT,
         is_default TINYINT(1) DEFAULT 0,
+        image_path VARCHAR(500) DEFAULT '../Img/menu.png',
         status ENUM('active', 'inactive') DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -293,6 +287,7 @@ $pdo->exec("
         name VARCHAR(100) NOT NULL,
         category ENUM('Pork','Chicken','Beef','Fish','Vegetables','Pasta','Dessert','Juice','Soup','Appetizer') NOT NULL,
         description TEXT,
+        image_path VARCHAR(500),
         archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         archived_by INT,
         reason TEXT
@@ -466,12 +461,13 @@ if (isset($_GET['archive_type']) && isset($_GET['archive_id']) && isset($_GET['r
                 $dish = $dish_stmt->fetch();
                 
                 if ($dish) {
-                    $stmt = $pdo->prepare("INSERT INTO archived_catering_dishes (original_id, name, category, description, archived_by, reason) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt = $pdo->prepare("INSERT INTO archived_catering_dishes (original_id, name, category, description, image_path, archived_by, reason) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     $stmt->execute([
                         $dish['id'],
                         $dish['name'],
                         $dish['category'],
                         $dish['description'],
+                        $dish['image_path'],
                         $_SESSION['user_id'],
                         $reason
                     ]);
@@ -740,12 +736,25 @@ if (isset($_POST['update_catering_package'])) {
 // Catering Dish Management
 if (isset($_POST['add_catering_dish'])) {
     try {
-        $stmt = $pdo->prepare("INSERT INTO catering_dishes (name, category, description, is_default) VALUES (?, ?, ?, ?)");
+        $image_path = '../Img/menu.png'; // Default image
+        
+        // Handle file upload
+        if (isset($_FILES['dish_image']) && $_FILES['dish_image']['error'] === UPLOAD_ERR_OK) {
+            $image_path = handleFileUpload($_FILES['dish_image'], $_POST['dish_name']);
+        }
+        
+        // If no file uploaded but URL is provided, use URL
+        if (empty($image_path) && !empty($_POST['dish_image_url'])) {
+            $image_path = $_POST['dish_image_url'];
+        }
+        
+        $stmt = $pdo->prepare("INSERT INTO catering_dishes (name, category, description, is_default, image_path) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([
             $_POST['dish_name'],
             $_POST['dish_category'],
             $_POST['dish_description'],
-            $_POST['is_default'] ?? 0
+            $_POST['is_default'] ?? 0,
+            $image_path
         ]);
         $message = "Catering dish added successfully!";
     } catch (Exception $e) {
@@ -755,12 +764,28 @@ if (isset($_POST['add_catering_dish'])) {
 
 if (isset($_POST['update_catering_dish'])) {
     try {
-        $stmt = $pdo->prepare("UPDATE catering_dishes SET name = ?, category = ?, description = ?, is_default = ? WHERE id = ?");
+        $image_path = $_POST['current_image_path'] ?? '../Img/menu.png';
+        
+        // Handle file upload
+        if (isset($_FILES['dish_image']) && $_FILES['dish_image']['error'] === UPLOAD_ERR_OK) {
+            $new_image_path = handleFileUpload($_FILES['dish_image'], $_POST['dish_name']);
+            if ($new_image_path) {
+                $image_path = $new_image_path;
+            }
+        }
+        
+        // If no file uploaded but URL is provided, use URL
+        if (empty($image_path) && !empty($_POST['dish_image_url'])) {
+            $image_path = $_POST['dish_image_url'];
+        }
+        
+        $stmt = $pdo->prepare("UPDATE catering_dishes SET name = ?, category = ?, description = ?, is_default = ?, image_path = ? WHERE id = ?");
         $stmt->execute([
             $_POST['dish_name'],
             $_POST['dish_category'],
             $_POST['dish_description'],
             $_POST['is_default'] ?? 0,
+            $image_path,
             $_POST['dish_id']
         ]);
         $message = "Catering dish updated successfully!";
@@ -835,12 +860,13 @@ if (isset($_GET['restore_catering_dish'])) {
         $dish = $dish_stmt->fetch();
         
         // Restore to dishes table
-        $stmt = $pdo->prepare("INSERT INTO catering_dishes (name, category, description, is_default) VALUES (?, ?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO catering_dishes (name, category, description, is_default, image_path) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([
             $dish['name'],
             $dish['category'],
             $dish['description'],
-            0
+            0,
+            $dish['image_path'] ?? '../Img/menu.png'
         ]);
         
         // Remove from archive
@@ -1626,7 +1652,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
                                                 <div class="file-upload-text">
                                                     <strong>Click to upload an image</strong>
-                                                    <p>or drag and drop</p>
+                                                    <p></p>
                                                     <p>PNG, JPG, GIF up to 5MB</p>
                                                 </div>
                                                 <input type="file" name="service_image" class="file-input" accept="image/*" onchange="previewImage(this)">
@@ -1635,11 +1661,18 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                             
                                             <?php if ($edit_service_content && !empty($edit_service_content['image_path'])): ?>
                                                 <div class="current-image-container">
-                                                    <p><strong>...</strong></p>
-                                                    <img src="<?php echo htmlspecialchars($edit_service_content['image_path']); ?>" 
+                                                    <p><strong>Current Image:</strong></p>
+                                                    <?php
+                                                    $current_image_path = $edit_service_content['image_path'];
+                                                    // Convert from client path to admin-accessible path
+                                                    if (strpos($current_image_path, '../Img/') === 0) {
+                                                        $current_image_path = '../../client/Img/' . substr($current_image_path, 7);
+                                                    }
+                                                    ?>
+                                                    <img src="<?php echo htmlspecialchars($current_image_path); ?>" 
                                                          class="current-image" 
                                                          alt="Current service image"
-                                                         onerror="this.style.display='none'">
+                                                         onerror="this.src='../../client/Img/menu.png'; this.alt='Default image'">
                                                 </div>
                                             <?php endif; ?>
                                         </div>
@@ -1696,75 +1729,75 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                         </div>
 
                         <!-- Active Services -->
-<div class="card">
-    <div class="card-header">
-        <h3><i class="fas fa-list"></i> Active Services</h3>
-    </div>
-    <div class="card-body">
-        <div class="table-container">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Price Info</th>
-                        <th>Sort Order</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($active_services as $service): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($service['service_name']); ?></td>
-                        <td><?php echo htmlspecialchars($service['price_info']); ?></td>
-                        <td><?php echo $service['sort_order']; ?></td>
-                        <td>
-                            <a href="?edit_service_content=<?php echo $service['id']; ?>&tab=services-content" class="btn btn-warning btn-sm">
-                                <i class="fas fa-edit"></i> Edit
-                            </a>
-                            <a href="?archive_service_content=<?php echo $service['id']; ?>&tab=services-content" class="btn btn-danger btn-sm" onclick="return confirm('Archive this service?')">
-                                <i class="fas fa-archive"></i> Archive
-                            </a>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-list"></i> Active Services</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-container">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Price Info</th>
+                                                <th>Sort Order</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($active_services as $service): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($service['service_name']); ?></td>
+                                                <td><?php echo htmlspecialchars($service['price_info']); ?></td>
+                                                <td><?php echo $service['sort_order']; ?></td>
+                                                <td>
+                                                    <a href="?edit_service_content=<?php echo $service['id']; ?>&tab=services-content" class="btn btn-warning btn-sm">
+                                                        <i class="fas fa-edit"></i> Edit
+                                                    </a>
+                                                    <a href="?archive_service_content=<?php echo $service['id']; ?>&tab=services-content" class="btn btn-danger btn-sm" onclick="return confirm('Archive this service?')">
+                                                        <i class="fas fa-archive"></i> Archive
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
 
                         <!-- Archived Services -->
-<div class="card">
-    <div class="card-header">
-        <h3><i class="fas fa-archive"></i> Archived Services</h3>
-    </div>
-    <div class="card-body">
-        <div class="table-container">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Price Info</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($archived_services_content as $service): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($service['service_name']); ?></td>
-                        <td><?php echo htmlspecialchars($service['price_info']); ?></td>
-                        <td>
-                            <a href="?restore_service_content=<?php echo $service['id']; ?>&tab=services-content" class="btn btn-success btn-sm" onclick="return confirm('Restore this service?')">
-                                <i class="fas fa-undo"></i> Restore
-                            </a>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-archive"></i> Archived Services</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-container">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Price Info</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($archived_services_content as $service): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($service['service_name']); ?></td>
+                                                <td><?php echo htmlspecialchars($service['price_info']); ?></td>
+                                                <td>
+                                                    <a href="?restore_service_content=<?php echo $service['id']; ?>&tab=services-content" class="btn btn-success btn-sm" onclick="return confirm('Restore this service?')">
+                                                        <i class="fas fa-undo"></i> Restore
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- PACKAGES TAB -->
@@ -1823,7 +1856,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                         <i class="fas fa-save"></i> <?php echo $edit_package ? 'Update Package' : 'Add Package'; ?>
                                     </button>
                                     <?php if ($edit_package): ?>
-                                        <a href="admin_management.php" class="btn btn-danger">
+                                        <a href="?tab=packages" class="btn btn-danger">
                                             <i class="fas fa-times"></i> Cancel
                                         </a>
                                     <?php endif; ?>
@@ -1857,7 +1890,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td>₱<?php echo number_format($package['excess_price'], 2); ?></td>
                                                 <td><?php echo $package['duration']; ?> hours</td>
                                                 <td>
-                                                    <a href="?edit_package=<?php echo $package['id']; ?>" class="btn btn-warning btn-sm">
+                                                    <a href="?edit_package=<?php echo $package['id']; ?>&tab=packages" class="btn btn-warning btn-sm">
                                                         <i class="fas fa-edit"></i> Edit
                                                     </a>
                                                     <button class="btn btn-danger btn-sm" onclick="archiveItem('package', <?php echo $package['id']; ?>)">
@@ -1900,7 +1933,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                         <i class="fas fa-save"></i> <?php echo $edit_service ? 'Update Service' : 'Add Service'; ?>
                                     </button>
                                     <?php if ($edit_service): ?>
-                                        <a href="admin_management.php" class="btn btn-danger">
+                                        <a href="?tab=services" class="btn btn-danger">
                                             <i class="fas fa-times"></i> Cancel
                                         </a>
                                     <?php endif; ?>
@@ -1928,7 +1961,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td><?php echo htmlspecialchars($service['name']); ?></td>
                                                 <td>₱<?php echo number_format($service['price'], 2); ?></td>
                                                 <td>
-                                                    <a href="?edit_service=<?php echo $service['services_id']; ?>" class="btn btn-warning btn-sm">
+                                                    <a href="?edit_service=<?php echo $service['services_id']; ?>&tab=services" class="btn btn-warning btn-sm">
                                                         <i class="fas fa-edit"></i> Edit
                                                     </a>
                                                     <button class="btn btn-danger btn-sm" onclick="archiveItem('service', <?php echo $service['services_id']; ?>)">
@@ -2001,7 +2034,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                         <i class="fas fa-save"></i> <?php echo $edit_equipment ? 'Update Equipment' : 'Add Equipment'; ?>
                                     </button>
                                     <?php if ($edit_equipment): ?>
-                                        <a href="admin_management.php" class="btn btn-danger">
+                                        <a href="?tab=equipment" class="btn btn-danger">
                                             <i class="fas fa-times"></i> Cancel
                                         </a>
                                     <?php endif; ?>
@@ -2037,7 +2070,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td><?php echo htmlspecialchars($item['supplier'] ?? 'Not specified'); ?></td>
                                                 <td><?php echo $item['reorder_level'] ?? 5; ?></td>
                                                 <td>
-                                                    <a href="?edit_equipment=<?php echo $item['id']; ?>" class="btn btn-warning btn-sm">
+                                                    <a href="?edit_equipment=<?php echo $item['id']; ?>&tab=equipment" class="btn btn-warning btn-sm">
                                                         <i class="fas fa-edit"></i> Edit
                                                     </a>
                                                     <button class="btn btn-danger btn-sm" onclick="archiveItem('equipment', <?php echo $item['id']; ?>)">
@@ -2094,7 +2127,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                         <i class="fas fa-save"></i> <?php echo $edit_catering_package ? 'Update Package' : 'Add Package'; ?>
                                     </button>
                                     <?php if ($edit_catering_package): ?>
-                                        <a href="admin_management.php" class="btn btn-danger">
+                                        <a href="?tab=catering-packages" class="btn btn-danger">
                                             <i class="fas fa-times"></i> Cancel
                                         </a>
                                     <?php endif; ?>
@@ -2126,7 +2159,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td><?php echo $package['min_attendees']; ?></td>
                                                 <td><?php echo $package['dish_count']; ?></td>
                                                 <td>
-                                                    <a href="?edit_catering_package=<?php echo $package['id']; ?>" class="btn btn-warning btn-sm">
+                                                    <a href="?edit_catering_package=<?php echo $package['id']; ?>&tab=catering-packages" class="btn btn-warning btn-sm">
                                                         <i class="fas fa-edit"></i> Edit
                                                     </a>
                                                     <button class="btn btn-danger btn-sm" onclick="archiveItem('catering_package', <?php echo $package['id']; ?>)">
@@ -2149,9 +2182,10 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                 <h3><i class="fas fa-plus-circle"></i> <?php echo $edit_catering_dish ? 'Edit Catering Dish' : 'Add New Catering Dish'; ?></h3>
                             </div>
                             <div class="card-body">
-                                <form method="POST">
+                                <form method="POST" enctype="multipart/form-data">
                                     <?php if ($edit_catering_dish): ?>
                                         <input type="hidden" name="dish_id" value="<?php echo $edit_catering_dish['id']; ?>">
+                                        <input type="hidden" name="current_image_path" value="<?php echo htmlspecialchars($edit_catering_dish['image_path'] ?? '../Img/menu.png'); ?>">
                                     <?php endif; ?>
                                     <div class="form-grid">
                                         <div class="form-group">
@@ -2183,6 +2217,72 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                             </select>
                                         </div>
                                     </div>
+                                    
+                                    <!-- Image Upload Section - Only show when editing -->
+                                    <?php if ($edit_catering_dish): ?>
+                                    <div class="form-group">
+                                        <label>Dish Image</label>
+                                        <div class="file-upload-container">
+                                            <label class="file-upload-label">
+                                                <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                                                <div class="file-upload-text">
+                                                    <strong>Click to upload an image</strong>
+                                                    <p></p>
+                                                    <p>PNG, JPG, GIF up to 5MB</p>
+                                                </div>
+                                                <input type="file" name="dish_image" class="file-input" accept="image/*" onchange="previewDishImage(this)">
+                                            </label>
+                                            <img id="dishImagePreview" class="image-preview" src="" alt="Dish image preview">
+                                            
+                                            <?php if ($edit_catering_dish && !empty($edit_catering_dish['image_path'])): ?>
+                                                <div class="current-image-container">
+                                                    <p><strong>Current Image:</strong></p>
+                                                    <?php
+                                                    // Fix the path for admin panel access
+                                                    $current_image_path = $edit_catering_dish['image_path'];
+                                                    
+                                                    // Convert from client path to admin-accessible path
+                                                    if (strpos($current_image_path, '../Img/') === 0) {
+                                                        // This is the path stored in database for client use
+                                                        // Convert to: ../../client/Img/filename
+                                                        $current_image_path = '../../client/Img/' . substr($current_image_path, 7);
+                                                    } elseif (strpos($current_image_path, 'Img/') === 0) {
+                                                        // If path starts with Img/, convert to admin path
+                                                        $current_image_path = '../../client/Img/' . substr($current_image_path, 4);
+                                                    }
+                                                    ?>
+                                                    <img src="<?php echo htmlspecialchars($current_image_path); ?>" 
+                                                         class="current-image" 
+                                                         alt="Current dish image"
+                                                         onerror="this.src='../../client/Img/menu.png'; this.alt='Default image'">
+                                                    <p class="text-muted" style="margin-top: 5px; font-size: 12px;">
+                                                        Path: <?php echo htmlspecialchars($current_image_path); ?>
+                                                    </p>
+                                                </div>
+                                            <?php else: ?>
+                                                <div class="current-image-container">
+                                                    <p><strong>No image set. Using default image.</strong></p>
+                                                    <img src="../../client/Img/menu.png" 
+                                                         class="current-image" 
+                                                         alt="Default dish image">
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                        
+                                        <!-- Fallback URL input -->
+                                        <div class="form-group" style="margin-top: 15px;">
+                                            <label>Or enter image URL (if not uploading file)</label>
+                                            <input type="text" name="dish_image_url" class="form-control" 
+                                                value="<?php echo $edit_catering_dish ? htmlspecialchars($edit_catering_dish['image_path'] ?? '../Img/menu.png') : '../Img/menu.png'; ?>" 
+                                                placeholder="Enter image URL (use ../Img/filename for client side)">
+                                            <small class="text-muted">Use paths like: ../Img/filename.jpg (this is what the client side will use)</small>
+                                        </div>
+                                    </div>
+                                    <?php else: ?>
+                                        <!-- Hidden default image path for new dishes -->
+                                        <input type="hidden" name="dish_image_url" value="../Img/menu.png">
+                                    <?php endif; ?>
+                                    
                                     <div class="form-group">
                                         <label>Description</label>
                                         <textarea name="dish_description" class="form-control" rows="3"><?php echo $edit_catering_dish ? htmlspecialchars($edit_catering_dish['description']) : ''; ?></textarea>
@@ -2191,7 +2291,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                         <i class="fas fa-save"></i> <?php echo $edit_catering_dish ? 'Update Dish' : 'Add Dish'; ?>
                                     </button>
                                     <?php if ($edit_catering_dish): ?>
-                                        <a href="admin_management.php" class="btn btn-danger">
+                                        <a href="?tab=catering-dishes" class="btn btn-danger">
                                             <i class="fas fa-times"></i> Cancel
                                         </a>
                                     <?php endif; ?>
@@ -2223,7 +2323,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td><?php echo htmlspecialchars($dish['description']); ?></td>
                                                 <td><?php echo $dish['is_default'] ? 'Yes' : 'No'; ?></td>
                                                 <td>
-                                                    <a href="?edit_catering_dish=<?php echo $dish['id']; ?>" class="btn btn-warning btn-sm">
+                                                    <a href="?edit_catering_dish=<?php echo $dish['id']; ?>&tab=catering-dishes" class="btn btn-warning btn-sm">
                                                         <i class="fas fa-edit"></i> Edit
                                                     </a>
                                                     <button class="btn btn-danger btn-sm" onclick="archiveItem('catering_dish', <?php echo $dish['id']; ?>)">
@@ -2270,7 +2370,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                         <i class="fas fa-save"></i> <?php echo $edit_catering_addon ? 'Update Addon' : 'Add Addon'; ?>
                                     </button>
                                     <?php if ($edit_catering_addon): ?>
-                                        <a href="admin_management.php" class="btn btn-danger">
+                                        <a href="?tab=catering-addons" class="btn btn-danger">
                                             <i class="fas fa-times"></i> Cancel
                                         </a>
                                     <?php endif; ?>
@@ -2300,7 +2400,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td>₱<?php echo number_format($addon['price'], 2); ?></td>
                                                 <td><?php echo htmlspecialchars($addon['description']); ?></td>
                                                 <td>
-                                                    <a href="?edit_catering_addon=<?php echo $addon['id']; ?>" class="btn btn-warning btn-sm">
+                                                    <a href="?edit_catering_addon=<?php echo $addon['id']; ?>&tab=catering-addons" class="btn btn-warning btn-sm">
                                                         <i class="fas fa-edit"></i> Edit
                                                     </a>
                                                     <button class="btn btn-danger btn-sm" onclick="archiveItem('catering_addon', <?php echo $addon['id']; ?>)">
@@ -2318,6 +2418,8 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
 
                     <!-- ARCHIVED ITEMS TAB -->
                     <div id="archived-tab" class="tab-content <?php echo $active_tab == 'archived' ? 'active' : ''; ?>">
+                        <!-- Archived Packages, Services, Equipment, Catering Packages, Catering Dishes, Catering Addons -->
+                        <!-- This section remains the same as before -->
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-archive"></i> Archived Packages</h3>
@@ -2344,7 +2446,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td><?php echo date('M j, Y', strtotime($package['archived_at'])); ?></td>
                                                 <td><?php echo htmlspecialchars($package['reason']); ?></td>
                                                 <td>
-                                                    <a href="?restore_package=<?php echo $package['id']; ?>" class="btn btn-success btn-sm" onclick="return confirm('Restore this package?')">
+                                                    <a href="?restore_package=<?php echo $package['id']; ?>&tab=archived" class="btn btn-success btn-sm" onclick="return confirm('Restore this package?')">
                                                         <i class="fas fa-undo"></i> Restore
                                                     </a>
                                                 </td>
@@ -2380,7 +2482,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td><?php echo date('M j, Y', strtotime($service['archived_at'])); ?></td>
                                                 <td><?php echo htmlspecialchars($service['reason']); ?></td>
                                                 <td>
-                                                    <a href="?restore_service=<?php echo $service['id']; ?>" class="btn btn-success btn-sm" onclick="return confirm('Restore this service?')">
+                                                    <a href="?restore_service=<?php echo $service['id']; ?>&tab=archived" class="btn btn-success btn-sm" onclick="return confirm('Restore this service?')">
                                                         <i class="fas fa-undo"></i> Restore
                                                     </a>
                                                 </td>
@@ -2420,7 +2522,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td><?php echo date('M j, Y', strtotime($item['archived_at'])); ?></td>
                                                 <td><?php echo htmlspecialchars($item['reason']); ?></td>
                                                 <td>
-                                                    <a href="?restore_equipment=<?php echo $item['id']; ?>" class="btn btn-success btn-sm" onclick="return confirm('Restore this equipment?')">
+                                                    <a href="?restore_equipment=<?php echo $item['id']; ?>&tab=archived" class="btn btn-success btn-sm" onclick="return confirm('Restore this equipment?')">
                                                         <i class="fas fa-undo"></i> Restore
                                                     </a>
                                                 </td>
@@ -2460,7 +2562,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td><?php echo date('M j, Y', strtotime($package['archived_at'])); ?></td>
                                                 <td><?php echo htmlspecialchars($package['reason']); ?></td>
                                                 <td>
-                                                    <a href="?restore_catering_package=<?php echo $package['id']; ?>" class="btn btn-success btn-sm" onclick="return confirm('Restore this catering package?')">
+                                                    <a href="?restore_catering_package=<?php echo $package['id']; ?>&tab=archived" class="btn btn-success btn-sm" onclick="return confirm('Restore this catering package?')">
                                                         <i class="fas fa-undo"></i> Restore
                                                     </a>
                                                 </td>
@@ -2496,7 +2598,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td><?php echo date('M j, Y', strtotime($dish['archived_at'])); ?></td>
                                                 <td><?php echo htmlspecialchars($dish['reason']); ?></td>
                                                 <td>
-                                                    <a href="?restore_catering_dish=<?php echo $dish['id']; ?>" class="btn btn-success btn-sm" onclick="return confirm('Restore this catering dish?')">
+                                                    <a href="?restore_catering_dish=<?php echo $dish['id']; ?>&tab=archived" class="btn btn-success btn-sm" onclick="return confirm('Restore this catering dish?')">
                                                         <i class="fas fa-undo"></i> Restore
                                                     </a>
                                                 </td>
@@ -2532,7 +2634,7 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
                                                 <td><?php echo date('M j, Y', strtotime($addon['archived_at'])); ?></td>
                                                 <td><?php echo htmlspecialchars($addon['reason']); ?></td>
                                                 <td>
-                                                    <a href="?restore_catering_addon=<?php echo $addon['id']; ?>" class="btn btn-success btn-sm" onclick="return confirm('Restore this catering addon?')">
+                                                    <a href="?restore_catering_addon=<?php echo $addon['id']; ?>&tab=archived" class="btn btn-success btn-sm" onclick="return confirm('Restore this catering addon?')">
                                                         <i class="fas fa-undo"></i> Restore
                                                     </a>
                                                 </td>
@@ -2656,6 +2758,36 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
             }
         }
         
+        // Dish image preview function
+        function previewDishImage(input) {
+            const preview = document.getElementById('dishImagePreview');
+            const file = input.files[0];
+            
+            if (file) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    // Hide current image when new one is uploaded
+                    const currentImageContainer = document.querySelector('.current-image-container');
+                    if (currentImageContainer) {
+                        currentImageContainer.style.display = 'none';
+                    }
+                }
+                
+                reader.readAsDataURL(file);
+            } else {
+                preview.style.display = 'none';
+                preview.src = '';
+                // Show current image again if file selection is cancelled
+                const currentImageContainer = document.querySelector('.current-image-container');
+                if (currentImageContainer) {
+                    currentImageContainer.style.display = 'block';
+                }
+            }
+        }
+        
         // Close modal if clicked outside
         window.onclick = function(event) {
             const modal = document.getElementById('archiveModal');
@@ -2677,9 +2809,44 @@ if (isset($_GET['archive_type'])) $active_tab = 'archived';
         // Set active tab on page load
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
-            const tab = urlParams.get('tab') || 'packages';
-            showTab(tab);
+            const tab = urlParams.get('tab') || '<?php echo $active_tab; ?>';
+            
+            // Show the correct tab based on PHP $active_tab variable
+            document.querySelectorAll('.tab-content').forEach(tabContent => {
+                tabContent.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Activate the correct tab and button
+            const targetTab = document.getElementById(tab + '-tab');
+            const targetButton = Array.from(document.querySelectorAll('.tab-btn')).find(btn => 
+                btn.textContent.includes(getTabDisplayName(tab))
+            );
+            
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
+            if (targetButton) {
+                targetButton.classList.add('active');
+            }
         });
+
+        // Helper function to match tab names with button text
+        function getTabDisplayName(tabKey) {
+            const tabNames = {
+                'services-content': 'Website Services',
+                'packages': 'Packages',
+                'services': 'Services',
+                'equipment': 'Equipment',
+                'catering-packages': 'Catering Packages',
+                'catering-dishes': 'Catering Dishes',
+                'catering-addons': 'Catering Addons',
+                'archived': 'Archived Items'
+            };
+            return tabNames[tabKey] || 'Packages';
+        }
     </script>
 </body>
-</html>
+</html>s

@@ -156,6 +156,26 @@ $isSuccess = isset($isSuccess) ? $isSuccess : false;
   text-align: center;
   margin: 0;
 }
+
+/* Style for login button */
+.login-btn {
+  padding: 8px 16px;
+  background-color: #422b0d;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.login-btn:hover {
+  background-color: #422b0d;
+  color: white;
+}
+
+/* Ensure dropdown is hidden when not logged in */
+.dropdown.d-none {
+  display: none;
+}
   </style>
 </head>
 
@@ -168,21 +188,32 @@ $isSuccess = isset($isSuccess) ? $isSuccess : false;
         <li><a href="#services">Services</a></li>
         <li><a href="#aboutus">About Us</a></li>
         <li>
-      <a 
-        href="<?php echo isset($_SESSION['loggedin']) && $_SESSION['loggedin'] ? 'booking-form.php' : '#'; ?>" 
-        class="btn btn-view-now booking-top"
-        <?php if (!isset($_SESSION['loggedin']) || !$_SESSION['loggedin']) echo 'onclick="openLoginModal(event)"'; ?>
-      >
-        Book
-      </a>
-    </li>
-        <li class="dropdown">
-          <a href="#"><img src="../Img/menu.png" alt="" class="img-round"></a>
-          <ul class="dropdown-content">
-            <li><a href="user_cart.php">Cart</a></li>
-            <li><a href="../includes/logout.php">Logout</a></li>
-          </ul>
+          <a 
+            href="<?php echo isset($_SESSION['loggedin']) && $_SESSION['loggedin'] ? 'booking-form.php' : '#'; ?>" 
+            class="btn btn-view-now booking-top"
+            <?php if (!isset($_SESSION['loggedin']) || !$_SESSION['loggedin']) echo 'onclick="openLoginModal(event)"'; ?>
+          >
+            Book
+          </a>
         </li>
+        
+        <!-- Login Button - Only show when user is NOT logged in -->
+        <?php if (!isset($_SESSION['loggedin']) || !$_SESSION['loggedin']): ?>
+          <li>
+            <a href="login.php" class="login-btn">Login</a>
+          </li>
+        <?php endif; ?>
+        
+        <!-- Dropdown Menu - Only show when user IS logged in -->
+        <?php if (isset($_SESSION['loggedin']) && $_SESSION['loggedin']): ?>
+          <li class="dropdown">
+            <a href="#"><img src="../Img/menu.png" alt="" class="img-round"></a>
+            <ul class="dropdown-content">
+              <li><a href="user_cart.php">Cart</a></li>
+              <li><a href="../includes/logout.php">Logout</a></li>
+            </ul>
+          </li>
+        <?php endif; ?>
       </ul>
     </nav>
   </header>
@@ -326,7 +357,7 @@ $isSuccess = isset($isSuccess) ? $isSuccess : false;
       // Initialize dropdown functionality
       const dropdown = document.querySelector('.dropdown');
       if (dropdown && !isLoggedIn) {
-        dropdown.classList.add('d-none');
+        dropdown.style.display = 'none';
       }
     });
   </script>

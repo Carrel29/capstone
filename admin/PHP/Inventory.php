@@ -464,7 +464,7 @@ $outOfStockItems = $pdo->query("SELECT COUNT(*) FROM inventory WHERE available_q
                 <li><a href="user_management.php"> User Management</a></li>
                 <li><a href="calendar.php">Calendar</a></li>
                 <li><a href="Inventory.php" class="active">Inventory</a></li>
-                <li><a href="admin_management.php"> Edit Services</a></li>
+                <li><a href="admin_management.php"> Edit</a></li>
                 <li><a href="Index.php?logout=true">Logout</a></li>
             </ul>
         </nav>
