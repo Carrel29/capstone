@@ -131,9 +131,10 @@ BTONE Events Place, a duly registered company with principal office at Baras, Ri
 
 <li><b>Cancellations and Refunds</b>
    <ul>
-     <li>If canceled at least 4 weeks before the event date, 10% of the total rental fee will be refunded.</li>
-     <li>If canceled 3 weeks before the event, 5% of the total rental fee will be refunded.</li>
-     <li>If canceled less than 3 weeks before the event, no refund will be provided.</li>
+     <li>If canceled at least 5 weeks before the event date, 100% of the total rental fee paid will be refunded.</li>
+     <li>If canceled at least 4 weeks before the event date, 80% of the total rental fee paid will be refunded.</li>
+     <li>If canceled 3 weeks before the event, 50% of the total rental fee paid will be refunded.</li>
+     <li>If canceled 2 weeks before the event, no refund will be provided.</li>
    </ul>
 </li>
 

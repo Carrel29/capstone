@@ -100,6 +100,7 @@ function getBookings($pdo) {
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
 // Fetch Booking Analytics
 function getBookingAnalytics($pdo)
 {
@@ -226,78 +227,101 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
             color: #999;
             font-style: italic;
         }
+        
         /* Charts Section - Much Smaller Charts */
-.charts-section {
-    display: flex;
-    gap: 15px;
-    margin-bottom: 20px;
-}
+        .charts-section {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
 
-.chart-card {
-    background: var(--card-bg);
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    flex: 1;
-}
+        .chart-card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            flex: 1;
+        }
 
-.chart-card h4 {
-    margin: 0 0 8px 0;
-    font-size: 13px;
-    color: var(--highlight);
-    text-align: center;
-    font-weight: 600;
-}
+        .chart-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: var(--highlight);
+            text-align: center;
+            font-weight: 600;
+        }
 
-.chart-card canvas {
-    width: 100% !important;
-    height: 150px !important; /* Much smaller */
-    max-height: 150px;
-}
+        .chart-card canvas {
+            width: 100% !important;
+            height: 150px !important; /* Much smaller */
+            max-height: 150px;
+        }
 
-/* For extra small charts */
-.charts-section.compact .chart-card canvas {
-    height: 120px !important;
-    max-height: 120px;
-}
+        /* For extra small charts */
+        .charts-section.compact .chart-card canvas {
+            height: 120px !important;
+            max-height: 120px;
+        }
 
-/* If still too big, try this ultra-compact version */
-.charts-section.ultra-compact {
-    gap: 10px;
-}
+        /* If still too big, try this ultra-compact version */
+        .charts-section.ultra-compact {
+            gap: 10px;
+        }
 
-.charts-section.ultra-compact .chart-card {
-    padding: 8px;
-}
+        .charts-section.ultra-compact .chart-card {
+            padding: 8px;
+        }
 
-.charts-section.ultra-compact .chart-card canvas {
-    height: 100px !important;
-    max-height: 100px;
-}
+        .charts-section.ultra-compact .chart-card canvas {
+            height: 100px !important;
+            max-height: 100px;
+        }
 
-.charts-section.ultra-compact .chart-card h4 {
-    font-size: 12px;
-    margin-bottom: 5px;
-}
+        .charts-section.ultra-compact .chart-card h4 {
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        /* Canceled booking styles */
+        .canceled-booking {
+            background-color: #f8f8f8 !important;
+            opacity: 0.7;
+        }
+
+        .canceled-booking td {
+            color: #999 !important;
+        }
+
+        .status-select:disabled {
+            background-color: #f5f5f5;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        .user-canceled {
+            color: #dc3545;
+            font-size: 11px;
+            font-weight: bold;
+        }
     </style>
 </head>
 
 <body>
     <div class="dashboard-container">
-    <nav class="sidebar">
-    <div class="logo">
-        <h2>Admin Dashboard</h2>
-    </div>
-    <ul class="nav-menu">
-        <li><a href="dashboard.php" >Dashboard</a></li>
-        <li><a href="add_user.php">Admin Management</a></li>
-        <li><a href="user_management">User Management</a></li>
-        <li><a href="calendar.php">Calendar</a></li>
-        <li><a href="Inventory.php">Inventory</a></li>
-        <li><a href="admin_management.php">Edit</a></li>
-        <li><a href="Index.php?logout=true">Logout</a></li>
-    </ul>
-</nav>
+        <nav class="sidebar">
+            <div class="logo">
+                <h2>Admin Dashboard</h2>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="dashboard.php" >Dashboard</a></li>
+                <li><a href="add_user.php">Admin Management</a></li>
+                <li><a href="user_management">User Management</a></li>
+                <li><a href="calendar.php">Calendar</a></li>
+                <li><a href="Inventory.php">Inventory</a></li>
+                <li><a href="admin_management.php">Edit</a></li>
+                <li><a href="Index.php?logout=true">Logout</a></li>
+            </ul>
+        </nav>
 
         <main class="main-content">
             <div class="analytics-section">
@@ -319,23 +343,24 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                 </div>
             </div>
 
-<!-- Charts Row -->
-<div class="charts-section">
-    <div class="chart-card">
-        <h4>Event Bookings</h4>
-        <canvas id="bookingChart"></canvas>
-    </div>
-    <div class="chart-card">
-        <h4>Monthly Trends</h4>
-        <canvas id="monthlyTrendChart"></canvas>
-    </div>
-</div>
-<!-- Month Navigation -->
-<div class="month-navigation">
-    <button id="prevMonth" class="nav-btn">&lt; Previous Month</button>
-    <h2 id="currentMonthDisplay"><?php echo date('F Y'); ?></h2>
-    <button id="nextMonth" class="nav-btn">Next Month &gt;</button>
-</div>
+            <!-- Charts Row -->
+            <div class="charts-section">
+                <div class="chart-card">
+                    <h4>Event Bookings</h4>
+                    <canvas id="bookingChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h4>Monthly Trends</h4>
+                    <canvas id="monthlyTrendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Month Navigation -->
+            <div class="month-navigation">
+                <button id="prevMonth" class="nav-btn">&lt; Previous Month</button>
+                <h2 id="currentMonthDisplay"><?php echo date('F Y'); ?></h2>
+                <button id="nextMonth" class="nav-btn">Next Month &gt;</button>
+            </div>
 
             <div class="table-header">
                 <h3>Active Inquiries</h3>
@@ -359,11 +384,14 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                 </thead>
                 <tbody>
                     <?php foreach ($bookingData as $booking): ?>
-                    <tr>
+                    <tr class="<?php echo $booking['status'] === 'Canceled' ? 'canceled-booking' : ''; ?>">
                         <td><?php echo htmlspecialchars($booking['bt_first_name'] . ' ' . $booking['bt_last_name']); ?></td>
                         <td><?php echo htmlspecialchars($booking['btschedule']);?></td>
                         <td class="status-cell-<?php echo htmlspecialchars($booking['id']); ?>">
-                        <?php echo htmlspecialchars($booking['status']); ?>
+                            <?php echo htmlspecialchars($booking['status']); ?>
+                            <?php if ($booking['status'] === 'Canceled'): ?>
+                                <br><small class="user-canceled">(Cancelled by User)</small>
+                            <?php endif; ?>
                         </td>
                         <td><?php echo htmlspecialchars($booking['btevent']); ?></td>
                         <td>
@@ -388,24 +416,27 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                             <?php endif; ?>
                         </td>
                         <td>
-                            <select class="status-select" onchange="updateStatus('<?php echo htmlspecialchars($booking['id']);?>', this.value)">
-                                <option value=""> Change Status</option>
+                            <?php if ($booking['status'] !== 'Canceled'): ?>
+                                <select class="status-select" onchange="updateStatus('<?php echo htmlspecialchars($booking['id']);?>', this.value, event)">
+                                    <option value=""> Change Status</option>
                                     <?php
-                                        $statuses = ['Pending', 'Approved', 'Canceled', 'Completed'];
-                                        foreach ($statuses as$statusOption):
-                                            $selected = ($booking['status'] === $statusOption) ? 'selected' :'';
+                                        $statuses = ['Pending', 'Approved', 'Completed'];
+                                        foreach ($statuses as $statusOption):
+                                            $selected = ($booking['status'] === $statusOption) ? 'selected' : '';
                                     ?>
                                     <option value="<?php echo $statusOption; ?>" <?php echo $selected; ?>>
                                         <?php echo $statusOption; ?>
                                     </option>
                                     <?php endforeach; ?>
-                            </select>
+                                </select>
+                            <?php else: ?>
+                                <span style="color: #999; font-style: italic;">Cancelled by user</span>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
-
 
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <script>    
@@ -431,30 +462,86 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                     modal.style.display = 'block';
                 }
                 
-                function updateStatus(bookingId, newStatus) {
-                    const formData = new FormData();
-                    formData.append('action', 'update_status');
-                    formData.append('booking_id', bookingId);
-                    formData.append('status', newStatus);
+                function updateStatus(bookingId, newStatus, event) {
+                    if (!newStatus) return;
                     
+                    // Don't allow status changes for canceled bookings
+                    const statusCell = document.querySelector('.status-cell-' + bookingId);
+                    if (statusCell && statusCell.textContent.includes('Canceled')) {
+                        showNotification('Cannot update status - booking was cancelled by user', 'error');
+                        if (event && event.target) {
+                            event.target.value = '';
+                        }
+                        return;
+                    }
+                    
+                    console.log('Starting updateStatus:', { bookingId, newStatus });
+
+                    if (!statusCell) {
+                        console.error('Status cell not found for booking:', bookingId);
+                        showNotification('Error: Could not find booking element', 'error');
+                        return;
+                    }
+
+                    const originalStatus = statusCell.textContent;
+                    statusCell.textContent = 'Updating...';
+                    statusCell.style.color = '#ff9800';
+
                     fetch('', {
                         method: 'POST',
-                        body: formData
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'action=update_status&booking_id=' + encodeURIComponent(bookingId) + 
+                              '&status=' + encodeURIComponent(newStatus)
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        console.log('Response received, status:', response.status);
+                        if (!response.ok) {
+                            throw new Error('HTTP error! status: ' + response.status);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
+                        console.log('Parsed response data:', data);
                         if (data.success) {
-                            location.reload(); // Reload to show updated status
+                            statusCell.textContent = newStatus;
+                            statusCell.style.color = getStatusColor(newStatus);
+                            showNotification('Status updated successfully!', 'success');
+                            
+                            // Reset the dropdown - now using the event parameter
+                            if (event && event.target) {
+                                event.target.value = '';
+                            }
+                            
+                            // Refresh page after delay to update analytics
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1500);
                         } else {
-                            alert(data.message || 'Error updating status');
+                            statusCell.textContent = originalStatus;
+                            statusCell.style.color = getStatusColor(originalStatus);
+                            showNotification('Error: ' + (data.message || 'Update failed'), 'error');
                         }
                     })
                     .catch(error => {
-                        console.error('Error:', error);
-                        alert('Error updating status');
+                        console.error('Fetch error details:', error);
+                        statusCell.textContent = originalStatus;
+                        statusCell.style.color = getStatusColor(originalStatus);
+                        showNotification('Network error: ' + error.message, 'error');
                     });
                 }
-                
+
+                function getStatusColor(status) {
+                    const colors = {
+                        'Pending': '#ff9800',
+                        'Approved': '#4caf50',
+                        'Canceled': '#f44336',
+                        'Completed': '#2196f3'
+                    };
+                    return colors[status] || '#666';
+                }
+
                 function toggleKebabMenu(button) {
                     const dropdown = button.nextElementSibling;
                     dropdown.classList.toggle('show');
@@ -509,7 +596,7 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                     <div class="modal-header">
                         <span class="close-modal">&times;</span>
                         <h2 class="modal-title">Archived Inquiries History</h2>
-                        <button id="clearArchiveBtn" class="clear-archive-btn">Clear All</button>
+                        <!--<button id="clearArchiveBtn" class="clear-archive-btn">Clear All</button>-->
                     </div>
                     <table class="modal-table">
                         <thead>
@@ -524,13 +611,16 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
                         </thead>
                         <tbody>
                             <?php foreach ($archivedData as $archived): ?>
-                                <tr>
+                                <tr class="<?php echo $archived['status'] === 'Canceled' ? 'canceled-booking' : ''; ?>">
                                     <td><?php echo htmlspecialchars($archived['bt_first_name'] . ' ' . $archived['bt_last_name']); ?></td>
                                     <td><?php echo htmlspecialchars($archived['btschedule']); ?></td>
                                     <td>
                                         <span class="status-badge status-<?php echo strtolower($archived['status']); ?>">
                                             <?php echo htmlspecialchars($archived['status']); ?>
                                         </span>
+                                        <?php if ($archived['status'] === 'Canceled'): ?>
+                                            <br><small class="user-canceled">(Cancelled by User)</small>
+                                        <?php endif; ?>
                                     </td>
                                     <td><?php echo htmlspecialchars($archived['btevent']); ?></td>
                                     <td>
@@ -646,77 +736,6 @@ $currentMonthData = getMonthDetails($pdo, $currentMonth, $currentYear);
             });
         }
     });
-
-    function updateStatus(bookingId, newStatus, event) {
-        if (!newStatus) return;
-        
-        console.log('Starting updateStatus:', { bookingId, newStatus });
-
-        const statusCell = document.querySelector('.status-cell-' + bookingId);
-        if (!statusCell) {
-            console.error('Status cell not found for booking:', bookingId);
-            showNotification('Error: Could not find booking element', 'error');
-            return;
-        }
-
-        const originalStatus = statusCell.textContent;
-        statusCell.textContent = 'Updating...';
-        statusCell.style.color = '#ff9800';
-
-        fetch('/capstone/admin/php/update_status.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: 'id=' + encodeURIComponent(bookingId) + 
-                  '&status=' + encodeURIComponent(newStatus)
-        })
-        .then(response => {
-            console.log('Response received, status:', response.status);
-            if (!response.ok) {
-                throw new Error('HTTP error! status: ' + response.status);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Parsed response data:', data);
-            if (data.success) {
-                statusCell.textContent = newStatus;
-                statusCell.style.color = getStatusColor(newStatus);
-                showNotification('Status updated successfully!', 'success');
-                
-                // Reset the dropdown - now using the event parameter
-                if (event && event.target) {
-                    event.target.value = '';
-                }
-                
-                // Refresh page after delay to update analytics
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
-            } else {
-                statusCell.textContent = originalStatus;
-                statusCell.style.color = getStatusColor(originalStatus);
-                showNotification('Error: ' + (data.error || 'Update failed'), 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Fetch error details:', error);
-            statusCell.textContent = originalStatus;
-            statusCell.style.color = getStatusColor(originalStatus);
-            showNotification('Network error: ' + error.message, 'error');
-        });
-    }
-
-    function getStatusColor(status) {
-        const colors = {
-            'Pending': '#ff9800',
-            'Approved': '#4caf50',
-            'Canceled': '#f44336',
-            'Completed': '#2196f3'
-        };
-        return colors[status] || '#666';
-    }
 
     function showNotification(message, type) {
         // Remove existing notifications

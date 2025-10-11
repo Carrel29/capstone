@@ -20,23 +20,11 @@ $password = '';
 if (isset($_SESSION['bt_user_id'])) {
     if ($_SESSION['role'] == 'ADMIN') {
         header("Location: dashboard.php");
-    exit();}
-}
-
-// Get all users for the dropdown
-$users = [];
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
-    $stmt = $pdo->query("
-    SELECT bt_user_id, bt_email, bt_first_name, bt_last_name FROM btuser
-    ");
-
-    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    $error = "Connection failed: " . $e->getMessage();
+        exit();
+    } elseif ($_SESSION['role'] == 'USER') {
+        header("Location: employee_dashboard.php");
+        exit();
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -66,15 +54,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['bt_user_id'] = $user['bt_user_id'];
             $_SESSION['role'] = $user['bt_privilege_name'];
        
-
-        // All users go to Dashboard
-        header("Location: dashboard.php");
-        exit();
+            // Redirect based on role
+            if ($_SESSION['role'] == 'ADMIN') {
+                header("Location: dashboard.php");
+            } else {
+                header("Location: employee_dashboard.php");
+            }
+            exit();
         
-        }else{
-        $error = "invalid credentials";
+        } else {
+        $error = "Invalid email or password";
     }
-        }catch(PDOException $e) {
+        } catch(PDOException $e) {
         $error = "Connection Failed: " . $e->getMessage();
     }
 }
@@ -83,77 +74,311 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <html>
 
 <head>
-    <title>Admin Login</title>
-    <link rel="stylesheet" href="../assets_css/admin.css">
+    <title>BTONE - Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #eae7de;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 8px 25px rgba(107, 65, 30, 0.15);
+            width: 100%;
+            max-width: 420px;
+            border: 1px solid #d7ccc8;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #A08963;
+        }
+
+        .logo h2 {
+            color: #422b0d;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .logo p {
+            color: #8a745a;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .input-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .input-container input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #d7ccc8;
+            border-radius: 8px;
+            font-size: 15px;
+            background: #faf9f7;
+            transition: all 0.3s ease;
+            outline: none;
+            color: #422b0d;
+        }
+
+        .input-container input:focus {
+            border-color: #A08963;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(160, 137, 99, 0.1);
+        }
+
+        .input-container input::placeholder {
+            color: #8a745a;
+        }
+
+        .password-container {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        .password-container input {
+            width: 100%;
+            padding: 14px 45px 14px 16px;
+            border: 2px solid #d7ccc8;
+            border-radius: 8px;
+            font-size: 15px;
+            background: #faf9f7;
+            transition: all 0.3s ease;
+            outline: none;
+            color: #422b0d;
+        }
+
+        .password-container input:focus {
+            border-color: #A08963;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(160, 137, 99, 0.1);
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #8a745a;
+            font-size: 15px;
+            transition: color 0.3s ease;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .toggle-password:hover {
+            color: #6b411e;
+            background: rgba(160, 137, 99, 0.1);
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            background: #6b411e;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        button[type="submit"]:hover {
+            background: #8a745a;
+            transform: translateY(-1px);
+        }
+
+        button[type="submit"]:active {
+            transform: translateY(0);
+        }
+
+        .error-message {
+            background: #f8d7da;
+            border: 1px solid #f1aeb5;
+            color: #721c24;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .login-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+            border-left: 4px solid #A08963;
+        }
+
+        .login-info strong {
+            display: block;
+            color: #422b0d;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .login-info p {
+            color: #6b411e;
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .role-badge {
+            display: inline-block;
+            background: #A08963;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #8a745a;
+            font-size: 15px;
+        }
+
+        .input-container.with-icon input {
+            padding-left: 45px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 30px 25px;
+                margin: 10px;
+            }
+            
+            body {
+                padding: 10px;
+            }
+            
+            .logo h2 {
+                font-size: 28px;
+            }
+        }
+
+        /* Loading state */
+        button[type="submit"].loading {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        button[type="submit"].loading::after {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 
 <body>
     <div class="login-container">
-        <h2>Admin Login</h2>
+        <div class="logo">
+            <h2>BTONE</h2>
+            <p>Event Management System</p>
+        </div>
+        
         <?php if (isset($error)): ?>
-            <p style="color: red;"><?php echo $error; ?></p>
-        <?php endif; ?>
-        <form method="POST" id="loginForm">
-            <div class="input-container">
-                <input type="email" id="email" name="email" placeholder="Email" required autocomplete="off">
+            <div class="error-message">
+                <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
             </div>
-            <input type="password" id="password" name="password" placeholder="Password" required>
-            <input type="hidden" id="direct_login" name="direct_login" value="false">
-            <button type="submit">Login</button>
+        <?php endif; ?>
+        
+        <form method="POST" id="loginForm">
+            <div class="input-container with-icon">
+                <i class="fas fa-envelope input-icon"></i>
+                <input type="email" id="email" name="email" placeholder="Enter your email" required autocomplete="off">
+            </div>
+            
+            <div class="password-container">
+                <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                <button type="button" class="toggle-password" id="togglePassword">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+            
+            <button type="submit" id="loginButton">
+                <i class="fas fa-sign-in-alt"></i> Log In
+            </button>
         </form>
+        
+        <div class="login-info">
+            <strong>Role-based Access</strong>
+            <p>
+                <span class="role-badge">Admin</span> Full system access<br>
+                <span class="role-badge">Employee</span> Calendar view only
+            </p>
+        </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const emailInput = document.getElementById('email');
             const passwordInput = document.getElementById('password');
-            const directLoginInput = document.getElementById('direct_login');
-            const userDropdown = document.getElementById('userDropdown');
-            const userOptions = document.querySelectorAll('.user-option');
+            const togglePassword = document.getElementById('togglePassword');
+            const loginButton = document.getElementById('loginButton');
+            const loginForm = document.getElementById('loginForm');
             
-            // Show dropdown when email input is focused
-            emailInput.addEventListener('focus', function() {
-                userDropdown.classList.add('active');
+            // Toggle password visibility
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                
+                // Change icon
+                const icon = togglePassword.querySelector('i');
+                icon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
             });
             
-            // Hide dropdown when clicking outside
-            document.addEventListener('click', function(event) {
-                if (!emailInput.contains(event.target) && !userDropdown.contains(event.target)) {
-                    userDropdown.classList.remove('active');
-                }
-            });
-            
-            // When user option is clicked
-            userOptions.forEach(function(option) {
-                option.addEventListener('click', function() {
-                    const email = this.getAttribute('data-email');
-                    emailInput.value = email;
-                    directLoginInput.value = 'true';
-                    document.getElementById('loginForm').submit();
-                    userDropdown.classList.remove('active');
-                });
-            });
-            
-            // Reset direct login when typing password
-            passwordInput.addEventListener('input', function() {
-                directLoginInput.value = 'false';
-            });
-            
-            // Filter dropdown and reset direct login when typing email
-            emailInput.addEventListener('input', function() {
-                const value = this.value.toLowerCase();
-                userOptions.forEach(function(option) {
-                    const email = option.getAttribute('data-email').toLowerCase();
-                    const name = option.getAttribute('data-name').toLowerCase();
-                    if (email.includes(value) || name.includes(value)) {
-                        option.style.display = 'block';
-                    } else {
-                        option.style.display = 'none';
-                    }
-                });
-                directLoginInput.value = 'false';
+            // Add loading state to form submission
+            loginForm.addEventListener('submit', function() {
+                loginButton.classList.add('loading');
+                loginButton.innerHTML = '<i class="fas fa-spinner"></i> Signing In...';
             });
         });
     </script>

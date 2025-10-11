@@ -14,6 +14,26 @@ if (isset($_SESSION['payment_success']) && $_SESSION['payment_success'] === true
     unset($_SESSION['payment_message']);
 }
 
+// Display cancellation message if exists
+if (isset($_SESSION['cancellation_message'])) {
+    $cancellation_msg = $_SESSION['cancellation_message'];
+    if ($cancellation_msg['success']) {
+        echo '<div class="alert alert-info" style="background-color: #d1ecf1; color: #0c5460; padding: 1rem; margin: 1rem 0; border-radius: 8px; text-align: center; border: 1px solid #bee5eb;">';
+        echo 'Booking cancelled successfully. ';
+        if ($cancellation_msg['refund_amount'] > 0) {
+            echo 'Refund of ₱' . number_format($cancellation_msg['refund_amount'], 2) . ' will be processed.';
+        } else {
+            echo 'No refund applicable based on cancellation policy.';
+        }
+        echo '</div>';
+    } else {
+        echo '<div class="alert alert-danger" style="background-color: #f8d7da; color: #721c24; padding: 1rem; margin: 1rem 0; border-radius: 8px; text-align: center; border: 1px solid #f5c6cb;">';
+        echo htmlspecialchars($cancellation_msg['message']);
+        echo '</div>';
+    }
+    unset($_SESSION['cancellation_message']);
+}
+
 // Database Connection
 $host = 'localhost';
 $dbname = 'btonedatabase';
@@ -25,6 +45,64 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     die("Database Connection Failed: " . $e->getMessage());
+}
+
+// Function to calculate refund percentage
+function calculateRefundPercentage($eventDate) {
+    $currentDate = new DateTime();
+    $eventDate = new DateTime($eventDate);
+    $daysDifference = $currentDate->diff($eventDate)->days;
+    
+    if ($daysDifference >= 35) { // 5 weeks or more
+        return 100;
+    } elseif ($daysDifference >= 28) { // 4 weeks
+        return 80;
+    } elseif ($daysDifference >= 21) { // 3 weeks
+        return 50;
+    } else { // Less than 3 weeks
+        return 0;
+    }
+}
+
+// Handle cancellation request
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_booking') {
+    $booking_id = $_POST['booking_id'];
+    $user_id = $_SESSION['user_id'] ?? 0;
+    
+    try {
+        // Get booking details
+        $stmt = $pdo->prepare("SELECT btschedule, total_cost, payment_status FROM bookings WHERE id = ? AND btuser_id = ?");
+        $stmt->execute([$booking_id, $user_id]);
+        $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($booking) {
+            $refundPercentage = calculateRefundPercentage($booking['btschedule']);
+            $amountPaid = $booking['payment_status'] === 'paid' ? $booking['total_cost'] : ($booking['total_cost'] * 0.2);
+            $refundAmount = ($amountPaid * $refundPercentage) / 100;
+            
+            // Update booking status to Canceled
+            $update_stmt = $pdo->prepare("UPDATE bookings SET status = 'Canceled', payment_status = 'refund_pending' WHERE id = ?");
+            $update_stmt->execute([$booking_id]);
+            
+            // Store refund information
+            $_SESSION['cancellation_message'] = [
+                'success' => true,
+                'refund_percentage' => $refundPercentage,
+                'refund_amount' => $refundAmount,
+                'amount_paid' => $amountPaid
+            ];
+        } else {
+            $_SESSION['cancellation_message'] = ['success' => false, 'message' => 'Booking not found'];
+        }
+        
+        header("Location: user_cart.php");
+        exit;
+        
+    } catch (Exception $e) {
+        $_SESSION['cancellation_message'] = ['success' => false, 'message' => 'Error cancelling booking: ' . $e->getMessage()];
+        header("Location: user_cart.php");
+        exit;
+    }
 }
 
 // Get user ID from session
@@ -492,6 +570,18 @@ function getCateringData($pdo, $booking_id) {
             box-shadow: 0 6px 12px rgba(23,162,184,0.4);
         }
         
+        .btn-cancel {
+            background: linear-gradient(135deg, #ff6b35, #e64a19);
+            color: white;
+            box-shadow: 0 4px 8px rgba(255,107,53,0.3);
+        }
+        
+        .btn-cancel:hover {
+            background: linear-gradient(135deg, #e64a19, #bf360c);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(255,107,53,0.4);
+        }
+        
         .empty-message {
             text-align: center;
             padding: 60px 40px;
@@ -705,6 +795,11 @@ function getCateringData($pdo, $booking_id) {
             border-top: 2px solid #8d6e63;
             font-weight: bold;
             font-size: 1.1em;
+        }
+        
+        .canceled-booking {
+            opacity: 0.7;
+            background: #f8f8f8;
         }
         
         @media (max-width: 768px) {
@@ -924,24 +1019,26 @@ function getCateringData($pdo, $booking_id) {
                             <?php endif; ?>
                         </div>
 
-                        
-<div class="button-group">
-    <button type="button" class="btn btn-details" onclick="showBookingDetails('<?php echo $item['id']; ?>')">
-        <span class="btn-icon">📋</span>
-        View Details
-    </button>
-    
-    <?php if ($item['payment_status'] === 'partial'): ?>
-        <form action="payment.php" method="GET" style="margin: 0;">
-            <input type="hidden" name="booking_id" value="<?php echo $item['id']; ?>">
-            <input type="hidden" name="continue_payment" value="true">
-            <button type="submit" class="btn btn-checkout">
-                <span class="btn-icon">💳</span>
-                Pay Remaining Balance
-            </button>
-        </form>
-    <?php endif; ?>
-</div>
+                        <div class="button-group">
+                            <button type="button" class="btn btn-details" onclick="showBookingDetails('<?php echo $item['id']; ?>')">
+                                <span class="btn-icon">📋</span>
+                                View Details
+                            </button>
+                            <button type="button" class="btn btn-cancel" onclick="showCancellationModal('<?php echo $item['id']; ?>')">
+                                <span class="btn-icon">🚫</span>
+                                Cancel Booking
+                            </button>
+                            <?php if ($item['payment_status'] === 'partial'): ?>
+                                <form action="payment.php" method="GET" style="margin: 0;">
+                                    <input type="hidden" name="booking_id" value="<?php echo $item['id']; ?>">
+                                    <input type="hidden" name="continue_payment" value="true">
+                                    <button type="submit" class="btn btn-checkout">
+                                        <span class="btn-icon">💳</span>
+                                        Pay Remaining Balance
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 <?php endforeach; ?>
                 
@@ -1024,32 +1121,95 @@ function getCateringData($pdo, $booking_id) {
                                 <span class="btn-icon">📋</span>
                                 View Details
                             </button>
+                            <button type="button" class="btn btn-cancel" onclick="showCancellationModal('<?php echo $item['id']; ?>')">
+                                <span class="btn-icon">🚫</span>
+                                Cancel Booking
+                            </button>
                         </div>
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
 
-        <!-- Past Bookings Section -->
+        <!-- Canceled Bookings Section -->
         <div class="section">
             <div class="section-header">
-                <h2>📋 Booking History</h2>
-                <span class="cart-count"><?php echo count($past_items); ?> booking(s)</span>
+                <h2>🚫 Canceled Bookings</h2>
+                <span class="cart-count"><?php echo count(array_filter($past_items, function($item) { return $item['status'] === 'Canceled'; })); ?> booking(s)</span>
             </div>
 
-            <?php if (empty($past_items)): ?>
+            <?php 
+            $canceled_items = array_filter($past_items, function($item) { 
+                return $item['status'] === 'Canceled'; 
+            });
+            ?>
+            
+            <?php if (empty($canceled_items)): ?>
                 <div class="empty-message">
-                    <h3>No past bookings</h3>
-                    <p>Your completed and canceled bookings will appear here</p>
+                    <h3>No canceled bookings</h3>
+                    <p>Your canceled bookings will appear here</p>
                 </div>
             <?php else: ?>
-                <?php foreach ($past_items as $item): ?>
+                <?php foreach ($canceled_items as $item): ?>
+                    <div class="booking-item canceled-booking">
+                        <div class="booking-header">
+                            <h3><?php echo htmlspecialchars($item['btevent']); ?></h3>
+                            <span class="status-badge status-canceled">
+                                ❌ Canceled
+                            </span>
+                        </div>
+
+                        <div class="booking-details">
+                            <div class="detail-row">
+                                <span class="detail-label">📅 Event Date:</span>
+                                <span class="detail-value"><?php echo date('F j, Y', strtotime($item['btschedule'])); ?></span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">⏰ Event Time:</span>
+                                <span class="detail-value"><?php echo date('g:i A', strtotime($item['btschedule'])); ?></span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">💰 Total Cost:</span>
+                                <span class="detail-value">₱<?php echo number_format($item['total_cost'], 2); ?></span>
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button type="button" class="btn btn-details" onclick="showBookingDetails('<?php echo $item['id']; ?>')">
+                                <span class="btn-icon">📋</span>
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+
+        <!-- Completed Bookings Section -->
+        <div class="section">
+            <div class="section-header">
+                <h2>📋 Completed Bookings</h2>
+                <span class="cart-count"><?php echo count(array_filter($past_items, function($item) { return $item['status'] === 'Completed'; })); ?> booking(s)</span>
+            </div>
+
+            <?php 
+            $completed_items = array_filter($past_items, function($item) { 
+                return $item['status'] === 'Completed'; 
+            });
+            ?>
+            
+            <?php if (empty($completed_items)): ?>
+                <div class="empty-message">
+                    <h3>No completed bookings</h3>
+                    <p>Your completed bookings will appear here</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($completed_items as $item): ?>
                     <div class="booking-item">
                         <div class="booking-header">
                             <h3><?php echo htmlspecialchars($item['btevent']); ?></h3>
-                            <span class="status-badge 
-                                <?php echo $item['status'] === 'Completed' ? 'status-completed' : 'status-canceled'; ?>">
-                                <?php echo $item['status'] === 'Completed' ? '✅ Completed' : '❌ Canceled'; ?>
+                            <span class="status-badge status-completed">
+                                ✅ Completed
                             </span>
                         </div>
 
@@ -1120,7 +1280,148 @@ function getCateringData($pdo, $booking_id) {
         </div>
     </div>
 
-        <script>
+    <!-- Cancellation Confirmation Modal -->
+    <div id="cancellationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Cancel Booking</h3>
+                <span class="close-modal" onclick="closeCancellationModal()">&times;</span>
+            </div>
+            <div class="modal-section">
+                <h4>Refund Information</h4>
+                <div id="refundDetails">
+                    <!-- Refund details will be populated here -->
+                </div>
+            </div>
+            <div class="modal-section">
+                <p style="color: #d32f2f; font-weight: bold;">Are you sure you want to cancel this booking?</p>
+                <div class="button-group" style="justify-content: center; margin-top: 20px;">
+                    <button type="button" class="btn btn-remove" onclick="confirmCancellation()">
+                        <span class="btn-icon">🗑️</span>
+                        Yes, Cancel Booking
+                    </button>
+                    <button type="button" class="btn btn-details" onclick="closeCancellationModal()">
+                        <span class="btn-icon">↶</span>
+                        No, Keep Booking
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Cancellation functionality
+        let currentCancellationId = null;
+
+        function showCancellationModal(bookingId) {
+            currentCancellationId = bookingId;
+            
+            // Get booking details for refund calculation
+            const allBookings = [
+                ...<?php echo json_encode(array_values($pending_items)); ?>,
+                ...<?php echo json_encode(array_values($approved_items)); ?>
+            ];
+            
+            const booking = allBookings.find(b => b.id == bookingId);
+            
+            if (booking) {
+                const eventDate = new Date(booking.btschedule);
+                const currentDate = new Date();
+                const timeDiff = eventDate.getTime() - currentDate.getTime();
+                const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                
+                let refundPercentage = 0;
+                let refundMessage = '';
+                
+                if (daysDiff >= 35) {
+                    refundPercentage = 100;
+                    refundMessage = '5+ weeks before event - 100% refund';
+                } else if (daysDiff >= 28) {
+                    refundPercentage = 80;
+                    refundMessage = '4 weeks before event - 80% refund';
+                } else if (daysDiff >= 21) {
+                    refundPercentage = 50;
+                    refundMessage = '3 weeks before event - 50% refund';
+                } else {
+                    refundPercentage = 0;
+                    refundMessage = 'Less than 3 weeks before event - No refund';
+                }
+                
+                const amountPaid = booking.payment_status === 'paid' ? 
+                    parseFloat(booking.total_cost) : 
+                    parseFloat(booking.total_cost) * 0.2;
+                
+                const refundAmount = (amountPaid * refundPercentage) / 100;
+                
+                const refundHtml = `
+                    <div class="modal-detail-row">
+                        <span class="modal-detail-label">Event Date:</span>
+                        <span class="modal-detail-value">${formatDateTime(booking.btschedule)}</span>
+                    </div>
+                    <div class="modal-detail-row">
+                        <span class="modal-detail-label">Days Until Event:</span>
+                        <span class="modal-detail-value">${daysDiff} days</span>
+                    </div>
+                    <div class="modal-detail-row">
+                        <span class="modal-detail-label">Refund Policy:</span>
+                        <span class="modal-detail-value">${refundMessage}</span>
+                    </div>
+                    <div class="modal-detail-row">
+                        <span class="modal-detail-label">Amount Paid:</span>
+                        <span class="modal-detail-value">₱${amountPaid.toFixed(2)}</span>
+                    </div>
+                    <div class="modal-detail-row">
+                        <span class="modal-detail-label">Refund Amount:</span>
+                        <span class="modal-detail-value" style="font-weight: bold; color: ${refundAmount > 0 ? '#388e3c' : '#d32f2f'}">
+                            ₱${refundAmount.toFixed(2)} (${refundPercentage}%)
+                        </span>
+                    </div>
+                `;
+                
+                document.getElementById('refundDetails').innerHTML = refundHtml;
+                document.getElementById('cancellationModal').style.display = 'block';
+            }
+        }
+
+        function confirmCancellation() {
+            if (!currentCancellationId) return;
+            
+            const formData = new FormData();
+            formData.append('action', 'cancel_booking');
+            formData.append('booking_id', currentCancellationId);
+            
+            // Show loading state
+            const cancelBtn = document.querySelector('#cancellationModal .btn-remove');
+            const originalText = cancelBtn.innerHTML;
+            cancelBtn.innerHTML = '<span class="btn-icon">⏳</span> Cancelling...';
+            cancelBtn.disabled = true;
+            
+            fetch('user_cart.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                // The PHP will redirect, so we just need to wait for it
+                // Force page refresh after a short delay to ensure the cancellation is processed
+                setTimeout(() => {
+                    window.location.href = 'user_cart.php';
+                }, 500);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Reset button state
+                cancelBtn.innerHTML = originalText;
+                cancelBtn.disabled = false;
+                alert('Error cancelling booking. Please try again.');
+            });
+        }
+
+        function closeCancellationModal() {
+            document.getElementById('cancellationModal').style.display = 'none';
+            currentCancellationId = null;
+        }
+
+        // Booking Details functionality
         function showBookingDetails(bookingId) {
             // Get all booking data from PHP arrays
             const allBookings = [
@@ -1134,7 +1435,7 @@ function getCateringData($pdo, $booking_id) {
             const booking = allBookings.find(b => b.id == bookingId);
             
             if (booking) {
-                console.log('Booking found:', booking); // Debug log
+                console.log('Booking found:', booking);
                 
                 // Calculate equipment total safely
                 let equipmentTotal = 0;
@@ -1373,42 +1674,17 @@ function getCateringData($pdo, $booking_id) {
             return '⏳ Pending';
         }
 
-        // Close modal when clicking outside
+        // Close modals when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('bookingDetailsModal');
-            if (event.target === modal) {
-                closeModal();
-            }
-        }
-
-        function removeFromCart(itemId) {
-            if (confirm('Are you sure you want to remove this booking?')) {
-                window.location.href = 'remove_booking.php?booking_id=' + itemId;
-            }
-        }
-
-        // Debug function to check booking data
-        function debugBookings() {
-            const allBookings = [
-                ...<?php echo json_encode(array_values($cart_items)); ?>,
-                ...<?php echo json_encode(array_values($pending_items)); ?>,
-                ...<?php echo json_encode(array_values($approved_items)); ?>,
-                ...<?php echo json_encode(array_values($past_items)); ?>
-            ];
-            
-            console.log('Total bookings found:', allBookings.length);
-            allBookings.forEach((booking, index) => {
-                console.log(`Booking ${index}:`, {
-                    id: booking.id,
-                    hasEquipment: !!booking.equipment,
-                    equipmentCount: booking.equipment ? booking.equipment.length : 0,
-                    hasCatering: !!booking.catering,
-                    cateringData: booking.catering
-                });
+            const modals = ['bookingDetailsModal', 'cancellationModal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (event.target === modal) {
+                    if (modalId === 'cancellationModal') closeCancellationModal();
+                    else closeModal();
+                }
             });
         }
-        // Uncomment the line below to enable debug logging
-        // debugBookings();
     </script>
 </body>
 </html>
